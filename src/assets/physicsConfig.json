@@ -1,0 +1,10 @@
+{
+  "baseGravity": 19.62,
+  "globalDamping": 0.15,
+  "player": {
+    "walkSpeed": 5.0,
+    "runSpeed": 9.0,
+    "jumpForce": 8.5,
+    "stopDampingMultiplier": 15.0
+  }
+}

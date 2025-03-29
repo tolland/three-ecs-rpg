@@ -1,0 +1,41 @@
+body { margin: 0; overflow: hidden; background-color: #222; color: white; }
+#container { width: 100vw; height: 100vh; display: block; }
+canvas { display: block; }
+
+/* src/renderer/styles.css */
+#hud-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none; /* Allow clicks to pass through to canvas */
+    color: white;
+    font-family: sans-serif;
+    font-size: 14px;
+    padding: 10px;
+    box-sizing: border-box; /* Include padding in dimensions */
+    display: flex;
+    flex-direction: column; /* Example layout */
+    justify-content: space-between; /* Push elements apart */
+}
+
+.hud-module {
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 8px;
+    margin-bottom: 10px;
+    pointer-events: auto; /* Re-enable pointer events if needed for specific modules */
+}
+
+#player-hud { /* Position top-left */
+    align-self: flex-start;
+}
+#debug-hud { /* Position top-right */
+    align-self: flex-end;
+    max-height: 50vh; /* Example constraint */
+    overflow-y: auto;
+}
+#map-hud { /* Position bottom-left */
+    align-self: flex-start;
+    /* Style map specifics here (width, height, background?) */
+}

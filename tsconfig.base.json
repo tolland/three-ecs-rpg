@@ -1,0 +1,26 @@
+// tsconfig.base.json
+{
+  "compilerOptions": {
+    // Common settings
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    // Define baseUrl and paths here if used consistently
+    "baseUrl": "./src",
+    "paths": {
+      "@main/*": ["main/*"],
+      "@preload/*": ["preload/*"],
+      "@renderer/*": ["renderer/*"],
+      "@ecs/*": ["renderer/ecs/*"],
+      "@components/*": ["renderer/ecs/components/*"],
+      "@systems/*": ["renderer/ecs/systems/*"],
+      "@core/*": ["renderer/core/*"],
+      "@setup/*": ["renderer/setup/*"],
+      "@assets/*": ["assets/*"]
+    }
+  },
+  "exclude": ["node_modules", "dist", "release"]
+}

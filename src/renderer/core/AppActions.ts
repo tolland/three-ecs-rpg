@@ -1,0 +1,16 @@
+export enum AppAction {
+    TOGGLE_DEBUG_HUD = 'TOGGLE_DEBUG_HUD',
+    TOGGLE_MAP_HUD = 'TOGGLE_MAP_HUD', // Assuming you might add an HTML map HUD later
+    TOGGLE_ENTITY_OUTLINES = 'TOGGLE_ENTITY_OUTLINES', // Placeholder for future feature
+    PAUSE_GAME = 'PAUSE_GAME',
+    SWITCH_PLAYER_CONTROL = 'SWITCH_PLAYER_CONTROL', // The 'P' key logic
+
+    // Camera Controls (could be combined or separate)
+    SET_CAMERA_MAIN = 'SET_CAMERA_MAIN',
+    SET_CAMERA_NPC1 = 'SET_CAMERA_NPC1', // Or cycle next/prev?
+    TOGGLE_SPLITSCREEN = 'TOGGLE_SPLITSCREEN',
+    CYCLE_CAMERA_NEXT = 'CYCLE_CAMERA_NEXT', // Alternative camera control
+    SET_CAMERA_FIRST_PERSON = 'SET_CAMERA_FIRST_PERSON', // Can reuse SET_CAMERA_MAIN if desired
+    SET_CAMERA_THIRD_PERSON_GLOBAL = 'SET_CAMERA_THIRD_PERSON_GLOBAL',
+    SET_CAMERA_THIRD_PERSON_ENTITY = 'SET_CAMERA_THIRD_PERSON_ENTITY',
+}

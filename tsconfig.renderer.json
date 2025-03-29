@@ -1,0 +1,12 @@
+// tsconfig.renderer.json
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",             // Output ESM for renderer bundles
+    "target": "ES2020",             // Target modern browser features
+    "outDir": "./dist/renderer",    // Rollup handles final bundling location
+    "rootDir": "./src/renderer",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"] // Browser libs
+  },
+  "include": ["src/renderer/**/*"]
+}
