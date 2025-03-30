@@ -1,6 +1,6 @@
 // src/renderer/core/InputManager.ts
 import { InputAction } from './InputActions';
-import { AppAction } from './AppActions'; // Import AppAction
+import { AppAction } from '../../shared/core/AppActions'; // Import AppAction
 import { AppEventManager } from './AppEventManager'; // Import AppEventManager
 
 // Type for the loaded configuration (can map to either enum)
@@ -28,7 +28,7 @@ export class InputManager {
         this.targetElement = targetElement;
         this.appEventManager = appEventManager;
         // Initialize only InputAction states to false
-        Object.values(InputAction).forEach(action => {
+        Object.values(InputAction).forEach((action) => {
             this.actionStates.set(action, false);
         });
     }
@@ -37,7 +37,9 @@ export class InputManager {
         try {
             const response = await fetch(configPath);
             if (!response.ok) {
-                throw new Error(`Failed to load input config: ${response.statusText}`);
+                throw new Error(
+                    `Failed to load input config: ${response.statusText}`,
+                );
             }
             const config: KeyMappingConfig = await response.json();
 
@@ -46,24 +48,34 @@ export class InputManager {
 
             for (const [keyCode, actionName] of Object.entries(config)) {
                 // Check if it's an InputAction
-                if (Object.values(InputAction).includes(actionName as InputAction)) {
+                if (
+                    Object.values(InputAction).includes(
+                        actionName as InputAction,
+                    )
+                ) {
                     this.keyToActionMap.set(keyCode, actionName as InputAction);
                 }
                 // Check if it's an AppAction
-                else if (Object.values(AppAction).includes(actionName as AppAction)) {
-                    this.keyToAppActionMap.set(keyCode, actionName as AppAction);
+                else if (
+                    Object.values(AppAction).includes(actionName as AppAction)
+                ) {
+                    this.keyToAppActionMap.set(
+                        keyCode,
+                        actionName as AppAction,
+                    );
                 } else {
-                    console.warn(`Input Config: Unknown action '${actionName}' defined for key '${keyCode}'`);
+                    console.warn(
+                        `Input Config: Unknown action '${actionName}' defined for key '${keyCode}'`,
+                    );
                 }
             }
             console.log('Input configuration loaded.');
             this.isInitialized = true;
             this.setupEventListeners();
-
         } catch (error) {
-            console.error("Error loading or parsing input config:", error);
+            console.error('Error loading or parsing input config:', error);
             this.isInitialized = false;
-    }
+        }
     }
 
     private setupEventListeners(): void {
@@ -73,7 +85,10 @@ export class InputManager {
         document.addEventListener('keydown', this.handleKeyDown);
         document.addEventListener('keyup', this.handleKeyUp);
 
-        document.addEventListener('pointerlockchange', this.handlePointerLockChange);
+        document.addEventListener(
+            'pointerlockchange',
+            this.handlePointerLockChange,
+        );
         document.addEventListener('mousemove', this.handleMouseMove);
 
         // Consider moving click listener out if only used for initial lock
@@ -84,9 +99,15 @@ export class InputManager {
         // Important: Remove listeners to prevent memory leaks
         document.removeEventListener('keydown', this.handleKeyDown);
         document.removeEventListener('keyup', this.handleKeyUp);
-        document.removeEventListener('pointerlockchange', this.handlePointerLockChange);
+        document.removeEventListener(
+            'pointerlockchange',
+            this.handlePointerLockChange,
+        );
         document.removeEventListener('mousemove', this.handleMouseMove);
-        this.targetElement.removeEventListener('click', this.requestPointerLock);
+        this.targetElement.removeEventListener(
+            'click',
+            this.requestPointerLock,
+        );
     }
 
     // --- Event Handlers ---

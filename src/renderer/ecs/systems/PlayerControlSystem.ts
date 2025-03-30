@@ -1,29 +1,37 @@
 import { System } from '@ecs/System';
 import { World } from '@ecs/World';
 import {
-    VelocityComponent,
-    RotationComponent,
-    InputControllableComponent,
-    PlayerControlledComponent,
+    CameraMode,
+    CameraTargetComponent,
     ColliderComponent,
-    NeedsUpdateComponent
-} from '@ecs/components';
+    InputControllableComponent,
+    NeedsUpdateComponent,
+    PlayerControlledComponent,
+    RotationComponent,
+    VelocityComponent,
+} from '@ecs/components'; // Import CameraMode
 import * as THREE from 'three';
-import * as CORE from '@core/Constants';
 import { PhysicsConfigManager } from '@core/PhysicsConfigManager';
-import { CameraTargetComponent, CameraMode } from '@ecs/components'; // Import CameraMode
 
 export class PlayerControlSystem extends System {
     private playerRotation = new THREE.Quaternion();
     private cameraRotationVertical = 0; // Store vertical rotation separately to clamp it
 
     // Store reference to manager
-    constructor(world: World, private physicsConfig: PhysicsConfigManager) {
+    constructor(
+        world: World,
+        private physicsConfig: PhysicsConfigManager,
+    ) {
         super(world);
     }
 
     update(deltaTime: number): void {
-        const entities = this.world.queryEntities([PlayerControlledComponent, VelocityComponent, RotationComponent, InputControllableComponent]);
+        const entities = this.world.queryEntities([
+            PlayerControlledComponent,
+            VelocityComponent,
+            RotationComponent,
+            InputControllableComponent,
+        ]);
 
         if (entities.length === 0) return;
 
@@ -31,9 +39,15 @@ export class PlayerControlSystem extends System {
 
         const vel = this.world.getComponent(entity, VelocityComponent)!;
         const rot = this.world.getComponent(entity, RotationComponent)!;
-        const input = this.world.getComponent(entity, InputControllableComponent)!;
+        const input = this.world.getComponent(
+            entity,
+            InputControllableComponent,
+        )!;
         const collider = this.world.getComponent(entity, ColliderComponent); // Need for jump check
-        const cameraTarget = this.world.getComponent(entity, CameraTargetComponent); // Get camera target info
+        const cameraTarget = this.world.getComponent(
+            entity,
+            CameraTargetComponent,
+        ); // Get camera target info
 
         // Determine current camera mode for the controlled entity
         const currentCameraMode = cameraTarget?.mode ?? CameraMode.FIRST_PERSON;
@@ -54,15 +68,22 @@ export class PlayerControlSystem extends System {
                 euler.setFromQuaternion(rot.value);
                 euler.y -= mouseDeltaX;
                 euler.x -= mouseDeltaY;
-                euler.x = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, euler.x)); // Clamp pitch
-            rot.value.setFromEuler(euler);
+                euler.x = Math.max(
+                    -Math.PI / 2 + 0.1,
+                    Math.min(Math.PI / 2 - 0.1, euler.x),
+                ); // Clamp pitch
+                rot.value.setFromEuler(euler);
                 this.world.addComponent(entity, new NeedsUpdateComponent());
-            } else if (cameraTarget) { // Only apply orbit if target component exists
+            } else if (cameraTarget) {
+                // Only apply orbit if target component exists
                 // Update orbit angles stored in CameraTargetComponent
                 cameraTarget.orbitAngles.x -= mouseDeltaX; // Azimuth
                 cameraTarget.orbitAngles.y -= mouseDeltaY; // Pitch
                 // Clamp pitch
-                cameraTarget.orbitAngles.y = Math.max(cameraTarget.minPitch, Math.min(cameraTarget.maxPitch, cameraTarget.orbitAngles.y));
+                cameraTarget.orbitAngles.y = Math.max(
+                    cameraTarget.minPitch,
+                    Math.min(cameraTarget.maxPitch, cameraTarget.orbitAngles.y),
+                );
                 // Azimuth wraps around automatically (handled by trig functions)
             }
         }
@@ -78,7 +99,11 @@ export class PlayerControlSystem extends System {
         } else {
             // In third person, movement is relative to camera's horizontal rotation (azimuth)
             // Get camera's horizontal rotation quaternion
-            const cameraHorizontalQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), cameraTarget?.orbitAngles.x ?? 0);
+            const cameraHorizontalQuat =
+                new THREE.Quaternion().setFromAxisAngle(
+                    new THREE.Vector3(0, 1, 0),
+                    cameraTarget?.orbitAngles.x ?? 0,
+                );
             forwardVector.applyQuaternion(cameraHorizontalQuat);
             rightVector.applyQuaternion(cameraHorizontalQuat);
         }
@@ -92,7 +117,9 @@ export class PlayerControlSystem extends System {
         worldMoveDirection.normalize();
 
         // --- Movement Velocity ---
-        const speed = input.actions.run ? playerCfg.runSpeed : playerCfg.walkSpeed;
+        const speed = input.actions.run
+            ? playerCfg.runSpeed
+            : playerCfg.walkSpeed;
         let moveVelocity = new THREE.Vector3();
 
         if (worldMoveDirection.lengthSq() > 0) {
@@ -104,17 +131,19 @@ export class PlayerControlSystem extends System {
             if (currentCameraMode !== CameraMode.FIRST_PERSON) {
                 // Smoothly rotate player model to face movement direction
                 const targetRotation = new THREE.Quaternion();
-                targetRotation.setFromUnitVectors(new THREE.Vector3(0, 0, -1), worldMoveDirection); // Target rotation faces movement
+                targetRotation.setFromUnitVectors(
+                    new THREE.Vector3(0, 0, -1),
+                    worldMoveDirection,
+                ); // Target rotation faces movement
                 rot.value.slerp(targetRotation, 0.1); // Adjust smoothing factor (0.1 = fairly quick)
                 this.world.addComponent(entity, new NeedsUpdateComponent());
             }
         } else {
             // Apply stronger damping *only* when stopping (no input)
             const stopDamping = globalDamping * playerCfg.stopDampingMultiplier;
-            vel.value.x *= (1 - stopDamping * deltaTime);
-            vel.value.z *= (1 - stopDamping * deltaTime);
+            vel.value.x *= 1 - stopDamping * deltaTime;
+            vel.value.z *= 1 - stopDamping * deltaTime;
         }
-
 
         // --- Jumping ---
         if (input.actions.jump && collider?.onGround) {

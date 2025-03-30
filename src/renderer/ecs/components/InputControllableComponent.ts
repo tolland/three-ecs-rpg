@@ -1,5 +1,6 @@
 // src/renderer/ecs/components/InputControllableComponent.ts
 import { Component } from '@ecs/Component';
+
 export class InputControllableComponent extends Component {
     // Stores the current state of actions
     public actions = {

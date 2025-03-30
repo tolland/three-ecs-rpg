@@ -1,6 +1,7 @@
 // src/renderer/ecs/components/ColliderComponent.ts
 import { Component } from '@ecs/Component';
 import * as THREE from 'three';
+
 // We might need more sophisticated shapes later
 export class ColliderComponent extends Component {
     constructor(
@@ -11,6 +12,11 @@ export class ColliderComponent extends Component {
         public height: number = 1.8, // Example for capsule
         public offset = new THREE.Vector3(0, 0, 0), // Offset from entity position
         public onGround: boolean = false, // State often needed by physics/collision
-        public collisions: { entity: number | null, normal: THREE.Vector3 }[] = [] // Store collision results this frame
-    ) { super(); }
+        public collisions: {
+            entity: number | null;
+            normal: THREE.Vector3;
+        }[] = [],
+    ) {
+        super();
+    }
 }

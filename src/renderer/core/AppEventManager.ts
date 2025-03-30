@@ -1,5 +1,5 @@
 // src/renderer/core/AppEventManager.ts
-import { AppAction } from './AppActions';
+import { AppAction } from '@shared/core/AppActions';
 
 type AppActionListener = (payload?: any) => void;
 
@@ -8,7 +8,7 @@ export class AppEventManager {
 
     constructor() {
         // Initialize listener arrays for all known actions
-        Object.values(AppAction).forEach(action => {
+        Object.values(AppAction).forEach((action) => {
             this.listeners.set(action, []);
         });
     }
@@ -20,13 +20,18 @@ export class AppEventManager {
     off(action: AppAction, listenerToRemove: AppActionListener): void {
         const actionListeners = this.listeners.get(action);
         if (actionListeners) {
-            this.listeners.set(action, actionListeners.filter(listener => listener !== listenerToRemove));
+            this.listeners.set(
+                action,
+                actionListeners.filter(
+                    (listener) => listener !== listenerToRemove,
+                ),
+            );
         }
     }
 
     emit(action: AppAction, payload?: any): void {
         // console.log(`Event emitted: ${action}`, payload); // Debug emission
-        this.listeners.get(action)?.forEach(listener => {
+        this.listeners.get(action)?.forEach((listener) => {
             try {
                 listener(payload);
             } catch (error) {

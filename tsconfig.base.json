@@ -19,7 +19,8 @@
       "@systems/*": ["renderer/ecs/systems/*"],
       "@core/*": ["renderer/core/*"],
       "@setup/*": ["renderer/setup/*"],
-      "@assets/*": ["assets/*"]
+      "@assets/*": ["assets/*"],
+      "@shared/*": ["shared/*"]
     }
   },
   "exclude": ["node_modules", "dist", "release"]

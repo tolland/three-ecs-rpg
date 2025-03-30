@@ -1,8 +1,7 @@
 import { System } from '@ecs/System';
 import { World } from '@ecs/World';
-import {PlayerControlledComponent} from "@ecs/components";
 import { GUI } from 'dat.gui';
-import {physicsConfigManager} from '@core/PhysicsConfigManager';
+import { physicsConfigManager } from '@core/PhysicsConfigManager';
 
 export class PhysicsHUD extends System {
     private debugElement: HTMLElement | null;
@@ -22,15 +21,55 @@ export class PhysicsHUD extends System {
     makePhysicsHUD() {
         const physFolder = this.gui.addFolder('Physics');
 
-        physFolder.add(physicsConfigManager.config, 'baseGravity').name('Base Gravity').onChange(physicsConfigManager.setBaseGravity.bind(physicsConfigManager));
-        physFolder.add(physicsConfigManager.config, 'globalDamping', 0, 1).name('Global Damping').onChange(physicsConfigManager.setGlobalDamping.bind(physicsConfigManager));
+        physFolder
+            .add(physicsConfigManager.config, 'baseGravity')
+            .name('Base Gravity')
+            .onChange(
+                physicsConfigManager.setBaseGravity.bind(physicsConfigManager),
+            );
+        physFolder
+            .add(physicsConfigManager.config, 'globalDamping', 0, 1)
+            .name('Global Damping')
+            .onChange(
+                physicsConfigManager.setGlobalDamping.bind(
+                    physicsConfigManager,
+                ),
+            );
         const playerFolder = physFolder.addFolder('Player');
-        playerFolder.add(physicsConfigManager.config.player, 'walkSpeed', 0, 20).onChange(physicsConfigManager.setPlayerWalkSpeed.bind(physicsConfigManager));
-        playerFolder.add(physicsConfigManager.config.player, 'runSpeed', 0, 20).onChange(physicsConfigManager.setPlayerRunSpeed.bind(physicsConfigManager));
-        playerFolder.add(physicsConfigManager.config.player, 'jumpForce', 0, 20).onChange(physicsConfigManager.setPlayerJumpForce.bind(physicsConfigManager));
-        playerFolder.add(physicsConfigManager.config.player, 'stopDampingMultiplier', 0, 20).onChange(physicsConfigManager.setPlayerStopDampingMultiplier.bind(physicsConfigManager));
+        playerFolder
+            .add(physicsConfigManager.config.player, 'walkSpeed', 0, 20)
+            .onChange(
+                physicsConfigManager.setPlayerWalkSpeed.bind(
+                    physicsConfigManager,
+                ),
+            );
+        playerFolder
+            .add(physicsConfigManager.config.player, 'runSpeed', 0, 20)
+            .onChange(
+                physicsConfigManager.setPlayerRunSpeed.bind(
+                    physicsConfigManager,
+                ),
+            );
+        playerFolder
+            .add(physicsConfigManager.config.player, 'jumpForce', 0, 20)
+            .onChange(
+                physicsConfigManager.setPlayerJumpForce.bind(
+                    physicsConfigManager,
+                ),
+            );
+        playerFolder
+            .add(
+                physicsConfigManager.config.player,
+                'stopDampingMultiplier',
+                0,
+                20,
+            )
+            .onChange(
+                physicsConfigManager.setPlayerStopDampingMultiplier.bind(
+                    physicsConfigManager,
+                ),
+            );
     }
 
-    update(deltaTime: number): void {
-    }
+    update(deltaTime: number): void {}
 }

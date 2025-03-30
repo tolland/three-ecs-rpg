@@ -1,6 +1,19 @@
-body { margin: 0; overflow: hidden; background-color: #222; color: white; }
-#container { width: 100vw; height: 100vh; display: block; }
-canvas { display: block; }
+body {
+    margin: 0;
+    overflow: hidden;
+    background-color: #222;
+    color: white;
+}
+
+#container {
+    width: 100vw;
+    height: 100vh;
+    display: block;
+}
+
+canvas {
+    display: block;
+}
 
 /* src/renderer/styles.css */
 #hud-overlay {
@@ -21,7 +34,7 @@ canvas { display: block; }
 }
 
 .hud-module {
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgb(0 0 0 / 50%);
     padding: 8px;
     margin-bottom: 10px;
     pointer-events: auto; /* Re-enable pointer events if needed for specific modules */
@@ -30,12 +43,15 @@ canvas { display: block; }
 #player-hud { /* Position top-left */
     align-self: flex-start;
 }
+
 #debug-hud { /* Position top-right */
     align-self: flex-end;
     max-height: 50vh; /* Example constraint */
     overflow-y: auto;
 }
+
 #map-hud { /* Position bottom-left */
     align-self: flex-start;
+
     /* Style map specifics here (width, height, background?) */
 }

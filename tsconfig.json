@@ -3,6 +3,8 @@
   "include": ["src/**/*"], // Include everything for checks
   // No "outDir" or specific "module" here, just for type checking
   "compilerOptions": {
-    "noEmit": true // Important: This config shouldn't output files itself
+    "noEmit": true, // Important: This config shouldn't output files itself
+    "target": "ES2018",
+    "moduleResolution": "node"
   }
 }

@@ -1,13 +1,26 @@
 import * as THREE from 'three';
 
+export enum RenderLayers {
+    RENDER_LAYER = 0, // Default layer, everything else
+    PLAYER_LAYER = 1, // Layer for the player's own model
+}
+
 export function setupScene(container: HTMLElement) {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x88ccff);
 
     // Basic Camera (will be managed by CameraSystem later)
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000,
+    );
     camera.position.z = 5;
     camera.position.y = 2;
+
+    camera.layers.enable(RenderLayers.RENDER_LAYER); // Render default layer
+    camera.layers.disable(RenderLayers.PLAYER_LAYER); // <<<<< DO NOT render player's own layer
 
     // Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -44,5 +57,16 @@ export function setupScene(container: HTMLElement) {
     };
     window.addEventListener('resize', onWindowResize);
 
-    return { scene, camera, renderer, cleanup: () => window.removeEventListener('resize', onWindowResize) };
+    const axesHelper = new THREE.AxesHelper(5);
+    scene.add(axesHelper);
+
+    // const gridHelper = new THREE.GridHelper(100, 100);
+    // scene.add(gridHelper);
+
+    return {
+        scene,
+        camera,
+        renderer,
+        cleanup: () => window.removeEventListener('resize', onWindowResize),
+    };
 }

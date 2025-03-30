@@ -1,4 +1,3 @@
-
 export enum InputAction {
     MOVE_FORWARD = 'MOVE_FORWARD',
     MOVE_BACKWARD = 'MOVE_BACKWARD',

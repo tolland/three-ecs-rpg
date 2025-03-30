@@ -1,6 +1,7 @@
 import { System } from '@ecs/System';
 import { World } from '@ecs/World';
-import {PlayerControlledComponent} from "@ecs/components";
+import { PlayerControlledComponent } from '@ecs/components';
+
 // Import necessary component types
 
 export class DebugHUDSystem extends System {
@@ -24,12 +25,14 @@ export class DebugHUDSystem extends System {
         let output = '--- ECS Debug ---\n';
         output += `Entities: ${this.world.queryEntities([]).length}\n`; // Total entities
 
-        const controlled = this.world.queryEntities([PlayerControlledComponent]);
-        if(controlled.length > 0){
+        const controlled = this.world.queryEntities([
+            PlayerControlledComponent,
+        ]);
+        if (controlled.length > 0) {
             const entity = controlled[0];
             output += `\nPlayer Controlled Entity: ${entity}\n`;
             const components = this.world.getEntityComponents(entity);
-            if(components){
+            if (components) {
                 components.forEach((comp, type) => {
                     output += `  - ${type.name}: ${JSON.stringify(comp, null, 2)}\n`; // Basic component stringify
                 });

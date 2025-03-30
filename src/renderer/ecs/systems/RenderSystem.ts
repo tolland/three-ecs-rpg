@@ -1,26 +1,40 @@
-
+// src/renderer/ecs/systems/RenderSystem.ts
 import { System } from '@ecs/System';
 import { World } from '@ecs/World';
-import { PositionComponent, RotationComponent, RenderableComponent, NeedsUpdateComponent } from '@ecs/components';
-import { CameraSystem } from './CameraSystem'; // Needs access to camera info
+import {
+    PositionComponent,
+    RotationComponent,
+    RenderableComponent,
+    NeedsUpdateComponent,
+} from '@ecs/components'; // Add DebugArrowComponent
+import { CameraSystem } from './CameraSystem';
 import * as THREE from 'three';
+import { DebugArrowComponent } from '@renderer/utils/DebugArrowComponent';
 
 export class RenderSystem extends System {
+    private tempVector = new THREE.Vector3(); // Reusable vector
+
     constructor(
         world: World,
         private scene: THREE.Scene,
         private renderer: THREE.WebGLRenderer,
-        private cameraSystem: CameraSystem // Inject CameraSystem
+        private cameraSystem: CameraSystem, // Inject CameraSystem
     ) {
         super(world);
     }
 
     update(deltaTime: number): void {
         // Update positions/rotations of THREE.Object3D based on ECS components
-        const entitiesToUpdate = this.world.queryEntities([RenderableComponent, NeedsUpdateComponent]);
+        const entitiesToUpdate = this.world.queryEntities([
+            RenderableComponent,
+            NeedsUpdateComponent,
+        ]);
 
         for (const entity of entitiesToUpdate) {
-            const renderable = this.world.getComponent(entity, RenderableComponent)!;
+            const renderable = this.world.getComponent(
+                entity,
+                RenderableComponent,
+            )!;
             const position = this.world.getComponent(entity, PositionComponent);
             const rotation = this.world.getComponent(entity, RotationComponent);
 
@@ -55,7 +69,8 @@ export class RenderSystem extends System {
             const height = Math.floor(viewport.w * size.height);
 
             // Update aspect ratio just before rendering (important!)
-            if (height > 0) { // Avoid division by zero
+            if (height > 0) {
+                // Avoid division by zero
                 camera.aspect = width / height;
                 camera.updateProjectionMatrix();
             }

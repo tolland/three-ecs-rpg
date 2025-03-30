@@ -1,18 +1,21 @@
-import {World} from '@ecs/World';
+import { World } from '@ecs/World';
 import {
-    PhysicsSystem,
-    InputSystem,
-    RenderSystem,
+    AnimationSystem,
+    CameraSystem,
     CollisionSystem,
+    DebugVisualsSystem,
+    InputSystem,
+    PhysicsSystem,
     PlayerControlSystem,
-    CameraSystem
+    RenderSystem,
 } from '@ecs/systems';
-import {Scene, WebGLRenderer} from 'three';
-import {InputManager} from '@core/InputManager';
-import {DebugHUDSystem} from "@systems/DebugHUDSystem";
-import {PhysicsConfigManager} from "@core/PhysicsConfigManager";
-import {PhysicsHUD} from "@systems/PhysicsHUD";
-import {WindSystem} from "@systems/WindSystem";
+import { Scene, WebGLRenderer } from 'three';
+import { InputManager } from '@core/InputManager';
+import { DebugHUDSystem } from '@systems/DebugHUDSystem';
+import { PhysicsConfigManager } from '@core/PhysicsConfigManager';
+import { PhysicsHUD } from '@systems/PhysicsHUD';
+import { WindSystem } from '@systems/WindSystem';
+import { AttachmentSystem } from '@systems/AttachmentSystem';
 
 export function setupECS(
     world: World,
@@ -20,18 +23,30 @@ export function setupECS(
     renderer: WebGLRenderer,
     inputManager: InputManager,
     physicsConfigManager: PhysicsConfigManager, // Pass the manager
-): { cameraSystem: CameraSystem, collisionSystem: CollisionSystem, inputSystem: InputSystem } { // Return systems that might be needed elsewhere
+): {
+    cameraSystem: CameraSystem;
+    collisionSystem: CollisionSystem;
+    inputSystem: InputSystem;
+    debugVisualsSystem: DebugVisualsSystem;
+} {
+    // Return systems that might be needed elsewhere
 
     // --- Create Systems ---
     const cameraSystem = new CameraSystem(world, scene);
     const inputSystem = new InputSystem(world, inputManager); // Pass container for pointer lock
-    const playerControlSystem = new PlayerControlSystem(world, physicsConfigManager);
+    const playerControlSystem = new PlayerControlSystem(
+        world,
+        physicsConfigManager,
+    );
     const windSystem = new WindSystem(world);
     const physicsSystem = new PhysicsSystem(world, physicsConfigManager);
     const collisionSystem = new CollisionSystem(world); // Needs Octree set later
-    const renderSystem = new RenderSystem(world, scene, renderer, cameraSystem); // Pass cameraSystem
+    const animationSystem = new AnimationSystem(world);
+    const attachmentSystem = new AttachmentSystem(world); // Create attachment system
+    const debugVisualsSystem = new DebugVisualsSystem(world, scene); // Instantiate
     const hudSystem = new DebugHUDSystem(world);
     const physicsHUD = new PhysicsHUD(world);
+    const renderSystem = new RenderSystem(world, scene, renderer, cameraSystem); // Pass cameraSystem
 
     // --- Add Systems to World (Order can matter!) ---
     // 1. Input: Gather user input.
@@ -46,10 +61,13 @@ export function setupECS(
     world.addSystem(physicsSystem);
     world.addSystem(collisionSystem);
     world.addSystem(cameraSystem);
+    world.addSystem(animationSystem);
+    world.addSystem(attachmentSystem);
+    world.addSystem(debugVisualsSystem); // Add BEFORE RenderSystem
     world.addSystem(renderSystem);
     // world.addSystem(hudSystem);
     world.addSystem(physicsHUD);
 
     // Return key systems needed externally (e.g., for setting octree, resizing)
-    return {cameraSystem, collisionSystem, inputSystem}; // Add collisionSystem here
+    return { cameraSystem, collisionSystem, inputSystem, debugVisualsSystem }; // Add collisionSystem here
 }
