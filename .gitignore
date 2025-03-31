@@ -1,4 +1,103 @@
+
 node_modules/
-.DS_Store
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+*.log
+*.tmp
+*.bak
+*.swp
+*.py[oc]
+build/
 dist/
-*.log 
+wheels/
+*.egg-info
+
+# === Hugging Face cache ===
+~/.cache/huggingface/
+**/huggingface/hub/*/blobs/
+**/huggingface/hub/*/snapshots/
+
+# === Model Files & Large Assets ===
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.tflite
+*.bin
+*.npz
+*.gguf
+*.index
+*.pb
+*.h5
+*.pt
+*.npy
+models/
+assets/
+checkpoints/
+snapshots/
+weights/
+
+# === PySide & Qt ===
+*.qrc.py
+__pyinstaller/
+*.ui.py
+
+# === Virtual Environments ===
+.venv/
+env/
+venv/
+.Python
+pip-wheel-metadata/
+
+# === Editors ===
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# === PyCharm Specific ===
+*.iml
+*.iws
+out/
+*.ipr
+
+# === Test Cache ===
+.cache/
+.coverage
+htmlcov/
+.tox/
+.pytest_cache/
+.mypy_cache/
+hypothesis/
+
+# === Build Tools ===
+*.spec
+*.manifest
+*.egg
+.eggs/
+*.whl
+
+# === Hatch / Poetry / uv ===
+.uv/
+poetry.lock
+poetry.toml
+
+# === Custom project dirs ===
+.DS_Store
+logs/
+temp/
+tmp/
+output/
+run/
+__output__/
+test_output/
+tests/model_examples/
+
+# === D-Bus runtime ===
+*.dbus-session
