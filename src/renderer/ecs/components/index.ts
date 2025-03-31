@@ -20,3 +20,8 @@ export * from './DebugPositionIndicatorComponent';
 export * from './DebugColliderVisualComponent';
 export * from './DebugBoundingBoxVisualComponent';
 export * from './NameComponent';
+export * from './AreaTriggerComponent';
+export * from './AudioSourceComponent';
+export * from './ForceAccumulatorComponent';
+export * from './MassComponent';
+export * from './MovementStateComponent';

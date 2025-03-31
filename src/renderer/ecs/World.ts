@@ -82,6 +82,10 @@ export class World {
         // if (system.init) system.init(); // Call init if defined
     }
 
+    getSystem<T extends System>(systemType: new (...args: any[]) => T): T | undefined {
+        return this.systems.find(system => system instanceof systemType) as T | undefined;
+    }
+
     // --- Querying ---
     // Finds all entities that have *all* the specified component types
     queryEntities<T extends Component[]>(

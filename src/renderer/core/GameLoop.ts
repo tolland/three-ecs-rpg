@@ -1,6 +1,7 @@
 // src/renderer/core/GameLoop.ts
 import { World } from '../ecs';
 import { Clock } from 'three';
+import { DEBUG_OBJ2 } from '@renderer/utils/debug';
 
 const MAX_DELTA_TIME = 1 / 30; // Clamp delta time to max 30 FPS equivalent
 
@@ -8,11 +9,14 @@ export class GameLoop {
     private clock = new Clock();
     private animationFrameId: number | null = null;
     private _isPaused = false; // Paused state
+    private debugSlowMotion = false;
+    private STEPS_PER_FRAME: number = 2;
 
     constructor(
         private world: World,
         private updateCallback?: () => void,
-    ) {}
+    ) {
+    }
 
     start(): void {
         if (this.animationFrameId === null) {
@@ -49,7 +53,10 @@ export class GameLoop {
 
     private tick = (): void => {
         // Use arrow function to preserve 'this'
-        let deltaTime = this.clock.getDelta();
+        // let deltaTime = this.clock.getDelta();
+
+        let deltaTime = this.debugSlowMotion ?
+            this.clock.getDelta() / this.STEPS_PER_FRAME : this.clock.getDelta();
 
         // --- Clamp Delta Time ---
         if (deltaTime > MAX_DELTA_TIME) {
@@ -76,6 +83,17 @@ export class GameLoop {
         }
 
         // Request next frame
-        this.animationFrameId = requestAnimationFrame(this.tick);
+        if (this.debugSlowMotion) {
+            setTimeout(() => {
+                this.animationFrameId = this.doRequestAnimationFrame(this.tick);
+            }, 50);
+        } else {
+            this.animationFrameId = this.doRequestAnimationFrame(this.tick);
+        }
     };
+
+    private doRequestAnimationFrame(callback: FrameRequestCallback): number {
+        DEBUG_OBJ2.updateId = DEBUG_OBJ2.updateId + 1;
+        return requestAnimationFrame(this.tick);
+    }
 }

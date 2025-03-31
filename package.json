@@ -6,7 +6,7 @@
     "start": "pnpm run build && electron .",
     "build": "rimraf dist && rollup -c --logLevel DEBUG",
     "watch": "rollup -c -w",
-    "dev": "concurrently \"pnpm:watch\" \"electron . --inspect\"",
+    "dev": "NODE_ENV=development concurrently \"pnpm:watch\" \"electron . --inspect\"",
     "lint": "tsc --noEmit",
     "package": "pnpm run build && electron-builder",
     "format": "prettier --config .prettierrc 'src/**/*.ts' --write"
@@ -46,6 +46,8 @@
     "@types/three": "^0.175.0",
     "concurrently": "^9.1.2",
     "electron-builder": "^26.0.12",
+    "electron-reload": "2.0.0-alpha.1",
+    "electron-reloader": "^1.2.3",
     "electron-vite": "^3.1.0",
     "prettier": "^3.5.3",
     "rimraf": "^6.0.1",

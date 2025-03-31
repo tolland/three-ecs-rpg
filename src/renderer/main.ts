@@ -17,7 +17,6 @@ import { appEventManager } from '@core/AppEventManager';
 import { InputManager } from '@core/InputManager';
 import { physicsConfigManager } from '@core/PhysicsConfigManager';
 import { AppAction } from '@shared/core/AppActions';
-// import {ipcRenderer} from 'electron';
 import { UberConfigManager } from '@core/UberConfigManager';
 
 // --- Type Definition for the Exposed API (Important for TypeScript) ---
@@ -55,8 +54,6 @@ const {
     renderer,
     cleanup: cleanupScene,
 } = setupScene(container);
-
-
 
 // --- Input Manager Setup ---
 // Pass eventManager instance to InputManager constructor
@@ -337,6 +334,19 @@ eventManager.on(AppAction.CYCLE_CAMERA_NEXT, () => {
     cameraSystem.setSingleScreen(nextCamId);
     isSplitScreen = false; // Cycling implies single screen view
 });
+
+eventManager.on(AppAction.AREA_TRIGGER_ENTER, () => {
+    console.log(`Area Trigger Entered - ${AppAction.AREA_TRIGGER_ENTER}`);
+    // payload: { triggerEntityId: number, activatorEntityId: number, areaName: string, soundKey?: string }
+});
+
+// 'ENTITY_COLLISION_IMPACT', payload: { entityId: number, impactVelocity: number, surfaceType: 'ground' | 'wall' }
+//
+// 'PLAYER_ACTION', payload: { entityId: number, action: string } (e.g., action: "JUMP", "SAY_HELLO")
+//
+// 'AREA_TRIGGER_ENTER', payload: { triggerEntityId: number, activatorEntityId: number, areaName: string, soundKey?: string }
+//
+// 'AREA_TRIGGER_EXIT', payload: { triggerEntityId: number, activatorEntityId: number, areaName: string, soundKey?: string }
 
 // --- Load World Assets, Input Config, and Create Initial Entities ---
 Promise.all([

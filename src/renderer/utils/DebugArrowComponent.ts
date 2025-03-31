@@ -23,6 +23,6 @@ export class DebugArrowComponent extends Component {
             headLength,
             headWidth,
         );
-        this.arrowHelper.name = 'DebugArrowHelper'; // Good practice
+        this.arrowHelper.name = 'DebugArrowHelper';
     }
 }

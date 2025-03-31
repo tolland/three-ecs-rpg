@@ -16,6 +16,10 @@ import { PhysicsConfigManager } from '@core/PhysicsConfigManager';
 import { PhysicsHUD } from '@systems/PhysicsHUD';
 import { WindSystem } from '@systems/WindSystem';
 import { AttachmentSystem } from '@systems/AttachmentSystem';
+import { appEventManager } from '@renderer/core';
+import { AreaTriggerSystem } from '@systems/AreaTriggerSystem';
+import { AudioSystem } from '@systems/AudioSystem';
+import { ForceBasedGravitySystem } from '@systems/ForceBasedGravitySystem';
 
 export function setupECS(
     world: World,
@@ -37,34 +41,48 @@ export function setupECS(
     const playerControlSystem = new PlayerControlSystem(
         world,
         physicsConfigManager,
+        appEventManager,
+        inputManager,
     );
     const windSystem = new WindSystem(world);
+    const gravitySystem = new ForceBasedGravitySystem(
+        world,
+        physicsConfigManager,
+    ); // <<< CHOOSE THIS
+    // const gravitySystem = new VelocityGravitySystem(world, physicsConfigManager); // <<< OR THIS
     const physicsSystem = new PhysicsSystem(world, physicsConfigManager);
     const collisionSystem = new CollisionSystem(world); // Needs Octree set later
     const animationSystem = new AnimationSystem(world);
-    const attachmentSystem = new AttachmentSystem(world); // Create attachment system
+    const attachmentSystem = new AttachmentSystem(world);
     const debugVisualsSystem = new DebugVisualsSystem(world, scene); // Instantiate
     const hudSystem = new DebugHUDSystem(world);
     const physicsHUD = new PhysicsHUD(world);
+    const areaTriggerSystem = new AreaTriggerSystem(world); // Instantiate
+    const audioSystem = new AudioSystem(world); // Instantiate
     const renderSystem = new RenderSystem(world, scene, renderer, cameraSystem); // Pass cameraSystem
 
     // --- Add Systems to World (Order can matter!) ---
     // 1. Input: Gather user input.
-    // 2. Player Control: Convert input to velocity/rotation changes.
-    // 3. Physics: Apply gravity, update position based on velocity.
-    // 4. Collision: Detect collisions, resolve positions, update velocity (sliding), mark ground status.
-    // 5. Camera: Update camera positions based on targets (after collision resolution).
-    // 6. Render: Update Three.js objects and render the scene.
     world.addSystem(inputSystem);
+    // 2. Player Control: Convert input to velocity/rotation changes.
     world.addSystem(playerControlSystem);
+    // 3. Physics: Apply gravity, update position based on velocity.
     world.addSystem(windSystem);
+    world.addSystem(gravitySystem);
     world.addSystem(physicsSystem);
+    // 4. Collision: Detect collisions, resolve positions, update velocity (sliding), mark ground status.
     world.addSystem(collisionSystem);
+    // 5. Camera: Update camera positions based on targets (after collision resolution).
     world.addSystem(cameraSystem);
     world.addSystem(animationSystem);
     world.addSystem(attachmentSystem);
     world.addSystem(debugVisualsSystem); // Add BEFORE RenderSystem
+    world.addSystem(areaTriggerSystem); // Check positions before camera/audio
+    world.addSystem(audioSystem); // Listens for events, run before render
+    // 6. Render: Update Three.js objects and render the scene.
     world.addSystem(renderSystem);
+    // 7. Display any HUD updates. Maybe this needs to be split into ingame and DOM based
+    // as it seems that in-game needs to ge before render system
     // world.addSystem(hudSystem);
     world.addSystem(physicsHUD);
 

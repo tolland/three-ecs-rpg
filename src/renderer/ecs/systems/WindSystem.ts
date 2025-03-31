@@ -1,7 +1,11 @@
 // src/renderer/ecs/systems/WindSystem.ts
 import { System } from '@ecs/System';
 import { World } from '@ecs/World';
-import { VelocityComponent, WindAffectedComponent } from '@ecs/components';
+import {
+    ForceAccumulatorComponent,
+    VelocityComponent,
+    WindAffectedComponent,
+} from '@ecs/components';
 import * as THREE from 'three';
 
 export class WindSystem extends System {
@@ -31,16 +35,17 @@ export class WindSystem extends System {
         // If not simulating gusts, just use: const currentWind = this.windVector;
 
         const entities = this.world.queryEntities([
-            VelocityComponent,
             WindAffectedComponent,
-        ]);
+            ForceAccumulatorComponent,
+        ]); // Changed query
 
         for (const entity of entities) {
-            const vel = this.world.getComponent(entity, VelocityComponent)!;
+            // const vel = this.world.getComponent(entity, VelocityComponent)!;
             const windComp = this.world.getComponent(
                 entity,
                 WindAffectedComponent,
             )!;
+            const forceComp = this.world.getComponent(entity, ForceAccumulatorComponent)!; // Get force accumulator
 
             // Apply wind force, scaled by resistance and delta time
             // Ensure resistance is not zero to avoid division issues
@@ -49,7 +54,10 @@ export class WindSystem extends System {
                 .clone()
                 .multiplyScalar(1 / resistanceFactor);
 
-            vel.value.addScaledVector(windForce, deltaTime);
+//            vel.value.addScaledVector(windForce, deltaTime);
+
+            // Add wind force to the accumulator (deltaTime applied in PhysicsSystem integrator)
+            forceComp.force.add(windForce);
 
             // Mark entity for update if velocity changed significantly (optional)
             // if (windForce.lengthSq() > 0.001) {

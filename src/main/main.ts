@@ -31,6 +31,28 @@ if (!gotTheLock) {
     });
 }
 
+console.log(`App is running in ${app.isPackaged ? 'production' : 'development'} mode. process.env.NODE_ENV: ${process.env.NODE_ENV}`);
+
+// Enable hot reload for development
+// @TODO this is not working properly
+// if (process.env.NODE_ENV === 'development') {
+//     console.log('Development mode detected. Enabling hot reload.');
+//     try {
+//         require('electron-reloader')(__dirname, {
+//             electron: require(`${__dirname}/../../node_modules/electron`),
+//             // hardResetMethod: 'exit'
+//             paths: [
+//                 `${__dirname}/dist/main/**/*`,
+//                 "dist/renderer/**/*",
+//                 "dist/preload/**/*",
+//             ]
+//         });
+//         console.log('Hot reload enabled');
+//     } catch (error) {
+//         console.log('Hot reload error:', error);
+//     }
+// }
+
 function createWindow() {
     const primaryDisplay = screen.getPrimaryDisplay();
     const { width, height } = primaryDisplay.workAreaSize;
@@ -70,6 +92,7 @@ function createWindow() {
     if (app.isPackaged) {
         // Production: Load from packaged file
         mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+        mainWindow.webContents.openDevTools();
     } else {
         // Development: Load from localhost (assuming a dev server, e.g., with Vite or Rollup watch)
         // Or load directly if Rollup outputs to dist/renderer

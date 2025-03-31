@@ -12,6 +12,7 @@ import * as THREE from 'three';
 import { Octree } from 'three/examples/jsm/math/Octree.js';
 import { Entity } from '@ecs/Entity';
 import { RenderLayers } from '@setup/sceneSetup';
+import { audioManager } from '@core/AudioManager';
 
 interface ManagedCamera {
     camera: THREE.PerspectiveCamera;
@@ -32,6 +33,7 @@ export class CameraSystem extends System {
     private targetLookAt = new THREE.Vector3();
     private raycaster = new THREE.Raycaster();
     private cameraTargetPosition = new THREE.Vector3(); // Position of the target entity
+    private listener: THREE.AudioListener;
 
     // Inject Octree (or CollisionSystem)
     constructor(
@@ -41,6 +43,9 @@ export class CameraSystem extends System {
         super(world);
         // Find collision system to get Octree? Or require Octree in constructor?
         // Let's assume we set it via a method for now.
+        this.listener = new THREE.AudioListener();
+        audioManager.listener = this.listener; // Provide listener to the manager
+        console.log('AudioListener created and assigned to AudioManager.');
     }
 
     setWorldOctree(octree: Octree) {
@@ -156,8 +161,10 @@ export class CameraSystem extends System {
             }
         }
 
+        let activeCamera: THREE.PerspectiveCamera | null = null;
+
         // --- Update Camera Positions ---
-        this.cameras.forEach((managedCam) => {
+        this.cameras.forEach((managedCam: ManagedCamera, cameraId: string) => {
             if (managedCam.targetEntity !== null) {
                 const targetPosComp = this.world.getComponent(
                     managedCam.targetEntity,
@@ -302,8 +309,47 @@ export class CameraSystem extends System {
                     // Store viewport (unchanged)
                     camera.userData.viewport = managedCam.viewport;
                 }
+
+                // --- Attach Listener to the *active* camera ---
+                // Simple approach: Attach to the 'main' camera if it exists and has a target
+                // More complex: Determine which camera is currently being rendered full-screen or primary split.
+                if (
+                    cameraId === 'main' &&
+                    managedCam.viewport.z > 0 &&
+                    managedCam.viewport.w > 0
+                ) {
+                    activeCamera = managedCam.camera;
+                }
             }
         });
+
+        if (!activeCamera) {
+            const firstActive = Array.from(this.cameras.values()).find(
+                (mc) => mc.viewport.z > 0 && mc.viewport.w > 0,
+            );
+            if (firstActive) {
+                activeCamera = firstActive.camera;
+            }
+        }
+
+        // If we found an active camera and the listener isn't already its child, add it.
+        // (Adding it repeatedly is harmless, Three.js handles it)
+        if (activeCamera) {
+            // Check if listener already attached to *a* camera to avoid adding multiple times to scene graph roots
+            if (!this.listener.parent) {
+                activeCamera.add(this.listener);
+                // console.log(`Attached AudioListener to camera: ${activeCamera.id}`); // Debug
+            } else if (this.listener.parent !== activeCamera) {
+                // If attached to a different camera, move it
+                this.listener.removeFromParent();
+                activeCamera.add(this.listener);
+                // console.log(`Moved AudioListener to camera: ${activeCamera.id}`); // Debug
+            }
+        } else if (this.listener.parent) {
+            // No active camera found, remove listener from previous parent? Or leave it?
+            // console.warn("No active camera found to attach AudioListener.");
+            // this.listener.removeFromParent(); // Optional
+        }
     }
 
     // --- Functions to manage split screen ---

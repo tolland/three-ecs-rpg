@@ -6,7 +6,7 @@ import {
     RotationComponent,
     RenderableComponent,
     NeedsUpdateComponent,
-} from '@ecs/components'; // Add DebugArrowComponent
+} from '@ecs/components';
 import { CameraSystem } from './CameraSystem';
 import * as THREE from 'three';
 import { DebugArrowComponent } from '@renderer/utils/DebugArrowComponent';

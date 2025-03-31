@@ -53,9 +53,7 @@ export function createTemporaryVisual(position: THREE.Vector3, scene: Scene, dur
                 // Fade out in the last second
                 material.opacity = 0.8 * (1 - (elapsed - (duration - 1)));
             }
-
-            // Continue animation
-            requestAnimationFrame(update);
+            requestAnimationFrame(update)
         } else {
             // Clean up when duration is reached
             scene.remove(mesh);
@@ -63,6 +61,7 @@ export function createTemporaryVisual(position: THREE.Vector3, scene: Scene, dur
             material.dispose();
         }
     }
+
 
     // Start the update loop
     update();
