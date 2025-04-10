@@ -1,0 +1,6 @@
+# Project-wide rules for AI
+- using pnpm, rollup, jest, threejs and typescript 5.8.3
+- use modern typescript features for typescript 5.0+
+- Avoid using TypeScript features deprecated after version 4.0.
+- need to maintain separation of concerns between different files. For example serialization helpers should be in a separate file from the main code.
+- prefer to have relevant comments above the code they refer to, rather than inline.

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JetBrains Mono Font Variations</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .font-sample {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>JetBrains Mono Font Variations</h1>
+    <div id="font-container"></div>
+
+    <script>
+        const fontVariants = [
+            "Thin", "ExtraLight", "Light", "Regular", "Medium", "SemiBold", "Bold", "ExtraBold"
+        ];
+        const fontWeights = [100, 200, 300, 400, 500, 600, 700, 800, 900];
+
+        const container = document.getElementById('font-container');
+        const table = document.createElement('table');
+        table.style.width = '100%';
+        table.style.borderCollapse = 'collapse';
+
+        const headerRow = document.createElement('tr');
+        ['Variant', 'Weight', 'Sample Text'].forEach(header => {
+            const th = document.createElement('th');
+            th.textContent = header;
+            th.style.border = '1px solid black';
+            th.style.padding = '8px';
+            th.style.textAlign = 'left';
+            headerRow.appendChild(th);
+        });
+        table.appendChild(headerRow);
+
+        fontVariants.forEach(variant => {
+            fontWeights.forEach(weight => {
+            const row = document.createElement('tr');
+
+            const variantCell = document.createElement('td');
+            variantCell.textContent = variant;
+            variantCell.style.border = '1px solid black';
+            variantCell.style.padding = '8px';
+            row.appendChild(variantCell);
+
+            const weightCell = document.createElement('td');
+            weightCell.textContent = weight;
+            weightCell.style.border = '1px solid black';
+            weightCell.style.padding = '8px';
+            row.appendChild(weightCell);
+
+            const sampleCell = document.createElement('td');
+            sampleCell.style.fontFamily = `"JetBrains Mono ${variant}", "JetBrains Mono", monospace`;
+            sampleCell.style.fontWeight = weight;
+            sampleCell.textContent = 'The quick brown fox jumps over the lazy dog.';
+            sampleCell.style.border = '1px solid black';
+            sampleCell.style.padding = '8px';
+            row.appendChild(sampleCell);
+
+            table.appendChild(row);
+            });
+        });
+
+        container.appendChild(table);
+    </script>
+</body>
+</html>
