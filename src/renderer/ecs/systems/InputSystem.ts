@@ -1,11 +1,11 @@
-import { System } from '@ecs/System';
-import { World } from '@ecs/World';
+// src/renderer/ecs/systems/InputSystem.ts
+import { System, World } from '@renderer/ecs';
 import {
     InputControllableComponent,
     PlayerControlledComponent,
 } from '@ecs/components';
-import { InputManager } from '@core/InputManager'; // Adjust path
-import { InputAction } from '@core/InputActions'; // Adjust path
+import { InputManager } from '@core/InputManager';
+import { InputAction } from '@shared/core/InputActions';
 
 export class InputSystem extends System {
     // Remove internal key/mouse state, keep only manager reference
@@ -22,6 +22,10 @@ export class InputSystem extends System {
         // No need to init listeners here, InputManager does it
     }
 
+    public getInputManager(): InputManager {
+        return this.inputManager;
+    }
+
     // No need for initEventListeners or updatePointerLockState here
 
     update(deltaTime: number): void {
@@ -31,7 +35,9 @@ export class InputSystem extends System {
         ]);
 
         // Get latest mouse delta for this frame
-        const currentMouseDelta = this.inputManager.consumeMouseDelta();
+        const currentMouseDelta = controlledEntities.length
+            ? this.inputManager.consumeMouseDelta()
+            : { x: 0, y: 0 };
 
         // Assume only one player-controlled entity at a time
         if (controlledEntities.length > 0) {
@@ -59,6 +65,21 @@ export class InputSystem extends System {
             );
             input.actions.run = this.inputManager.getActionState(
                 InputAction.RUN,
+            );
+            input.actions.crouch = this.inputManager.getActionState(
+                InputAction.CROUCH,
+            );
+            input.actions.orbitLeft = this.inputManager.getActionState(
+                InputAction.ORBIT_LEFT,
+            );
+            input.actions.orbitRight = this.inputManager.getActionState(
+                InputAction.ORBIT_RIGHT,
+            );
+            input.actions.rotateLeft = this.inputManager.getActionState(
+                InputAction.ROTATE_LEFT,
+            );
+            input.actions.rotateRight = this.inputManager.getActionState(
+                InputAction.ROTATE_RIGHT,
             );
             // Add other actions like INTERACT if needed
 

@@ -1,6 +1,11 @@
 .env
 node_modules/
-./three-ecs-rpg.code-workspace
+/three-ecs-rpg.code-workspace
+/assets
+!./assets/config
+/src/assets/*.glb
+/release
+
 
 # === Python ===
 __pycache__/

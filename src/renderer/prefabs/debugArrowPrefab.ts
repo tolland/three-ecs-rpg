@@ -2,12 +2,12 @@
 import { World } from '@ecs/World';
 import { Entity } from '@ecs/Entity';
 import {
-    RenderableComponent,
     AttachToComponent,
     NameComponent,
+    RenderableComponent,
 } from '@ecs/components';
 import * as THREE from 'three';
-import { DebugArrowComponent } from '@renderer/utils/DebugArrowComponent';
+import { DebugArrowComponent } from '@components/DebugArrowComponent';
 
 // Options for creating the arrow
 export interface DebugArrowOptions {

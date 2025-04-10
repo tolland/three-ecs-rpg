@@ -10,17 +10,7 @@ export function setupScene(container: HTMLElement) {
     scene.background = new THREE.Color(0x88ccff);
 
     // Basic Camera (will be managed by CameraSystem later)
-    const camera = new THREE.PerspectiveCamera(
-        75,
-        window.innerWidth / window.innerHeight,
-        0.1,
-        1000,
-    );
-    camera.position.z = 5;
-    camera.position.y = 2;
-
-    camera.layers.enable(RenderLayers.RENDER_LAYER); // Render default layer
-    camera.layers.disable(RenderLayers.PLAYER_LAYER); // <<<<< DO NOT render player's own layer
+    // cameras created by the CameraSystem will be added to the scene
 
     // Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -65,7 +55,6 @@ export function setupScene(container: HTMLElement) {
 
     return {
         scene,
-        camera,
         renderer,
         cleanup: () => window.removeEventListener('resize', onWindowResize),
     };

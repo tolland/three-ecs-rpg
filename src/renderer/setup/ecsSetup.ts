@@ -4,10 +4,12 @@ import {
     CameraSystem,
     CollisionSystem,
     DebugVisualsSystem,
+    FreecamControlSystem,
     InputSystem,
     PhysicsSystem,
     PlayerControlSystem,
     RenderSystem,
+    ViewportLayoutSystem,
 } from '@ecs/systems';
 import { Scene, WebGLRenderer } from 'three';
 import { InputManager } from '@core/InputManager';
@@ -20,6 +22,7 @@ import { appEventManager } from '@renderer/core';
 import { AreaTriggerSystem } from '@systems/AreaTriggerSystem';
 import { AudioSystem } from '@systems/AudioSystem';
 import { ForceBasedGravitySystem } from '@systems/ForceBasedGravitySystem';
+import { SpeedHUDSystem } from '@systems/SpeedHUDSystem';
 
 export function setupECS(
     world: World,
@@ -32,10 +35,12 @@ export function setupECS(
     collisionSystem: CollisionSystem;
     inputSystem: InputSystem;
     debugVisualsSystem: DebugVisualsSystem;
+    viewPortLayoutSystem: ViewportLayoutSystem;
 } {
     // Return systems that might be needed elsewhere
 
     // --- Create Systems ---
+    const viewPortLayoutSystem = new ViewportLayoutSystem(world);
     const cameraSystem = new CameraSystem(world, scene);
     const inputSystem = new InputSystem(world, inputManager); // Pass container for pointer lock
     const playerControlSystem = new PlayerControlSystem(
@@ -44,6 +49,7 @@ export function setupECS(
         appEventManager,
         inputManager,
     );
+    const freecamControlSystem = new FreecamControlSystem(world);
     const windSystem = new WindSystem(world);
     const gravitySystem = new ForceBasedGravitySystem(
         world,
@@ -56,24 +62,32 @@ export function setupECS(
     const attachmentSystem = new AttachmentSystem(world);
     const debugVisualsSystem = new DebugVisualsSystem(world, scene); // Instantiate
     const hudSystem = new DebugHUDSystem(world);
+    const speedHudSystem = new SpeedHUDSystem(world);
     const physicsHUD = new PhysicsHUD(world);
     const areaTriggerSystem = new AreaTriggerSystem(world); // Instantiate
     const audioSystem = new AudioSystem(world); // Instantiate
-    const renderSystem = new RenderSystem(world, scene, renderer, cameraSystem); // Pass cameraSystem
+    const renderSystem = new RenderSystem(world, scene, renderer);
 
     // --- Add Systems to World (Order can matter!) ---
+    // @TODO doing this first for now, but should be moved to a better place
+    world.addSystem(viewPortLayoutSystem);
     // 1. Input: Gather user input.
     world.addSystem(inputSystem);
     // 2. Player Control: Convert input to velocity/rotation changes.
     world.addSystem(playerControlSystem);
+    world.addSystem(freecamControlSystem);
     // 3. Physics: Apply gravity, update position based on velocity.
-    world.addSystem(windSystem);
+    // world.addSystem(windSystem);
     world.addSystem(gravitySystem);
-    world.addSystem(physicsSystem);
-    // 4. Collision: Detect collisions, resolve positions, update velocity (sliding), mark ground status.
+    // 4. Collision: Detect collisions, resolve positions(sliding), mark ground status.
     world.addSystem(collisionSystem);
-    // 5. Camera: Update camera positions based on targets (after collision resolution).
+    // apply forces and update velocity
+    world.addSystem(physicsSystem);
+    // 5. Camera: Update camera positXions based on targets (after collision resolution).
     world.addSystem(cameraSystem);
+    cameraSystem.registerDependencies();
+    playerControlSystem.registerDependencies();
+    freecamControlSystem.registerDependencies(inputManager);
     world.addSystem(animationSystem);
     world.addSystem(attachmentSystem);
     world.addSystem(debugVisualsSystem); // Add BEFORE RenderSystem
@@ -81,11 +95,19 @@ export function setupECS(
     world.addSystem(audioSystem); // Listens for events, run before render
     // 6. Render: Update Three.js objects and render the scene.
     world.addSystem(renderSystem);
+    renderSystem.registerDependencies();
     // 7. Display any HUD updates. Maybe this needs to be split into ingame and DOM based
     // as it seems that in-game needs to ge before render system
     // world.addSystem(hudSystem);
     world.addSystem(physicsHUD);
+    world.addSystem(speedHudSystem);
 
     // Return key systems needed externally (e.g., for setting octree, resizing)
-    return { cameraSystem, collisionSystem, inputSystem, debugVisualsSystem }; // Add collisionSystem here
+    return {
+        cameraSystem,
+        collisionSystem,
+        inputSystem,
+        debugVisualsSystem,
+        viewPortLayoutSystem,
+    }; // Add collisionSystem here
 }

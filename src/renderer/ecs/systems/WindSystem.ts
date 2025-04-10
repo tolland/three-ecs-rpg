@@ -3,7 +3,6 @@ import { System } from '@ecs/System';
 import { World } from '@ecs/World';
 import {
     ForceAccumulatorComponent,
-    VelocityComponent,
     WindAffectedComponent,
 } from '@ecs/components';
 import * as THREE from 'three';
@@ -25,7 +24,7 @@ export class WindSystem extends System {
         // --- Optional: Simulate Gusts ---
         // Make wind strength vary over time using a sine wave
         const baseStrength = 1.5; // Base strength from config or hardcoded
-        const gustStrength = (1.0 * (Math.sin(this.time * 0.5) + 1)) / 2; // Slow sine wave [0, 1]
+        const gustStrength = (Math.sin(this.time * 0.5) + 1) / 2; // Slow sine wave [0, 1]
         const currentWindStrength = baseStrength + gustStrength;
         const currentWind = this.windVector
             .clone()
@@ -45,7 +44,10 @@ export class WindSystem extends System {
                 entity,
                 WindAffectedComponent,
             )!;
-            const forceComp = this.world.getComponent(entity, ForceAccumulatorComponent)!; // Get force accumulator
+            const forceComp = this.world.getComponent(
+                entity,
+                ForceAccumulatorComponent,
+            )!; // Get force accumulator
 
             // Apply wind force, scaled by resistance and delta time
             // Ensure resistance is not zero to avoid division issues
@@ -54,7 +56,7 @@ export class WindSystem extends System {
                 .clone()
                 .multiplyScalar(1 / resistanceFactor);
 
-//            vel.value.addScaledVector(windForce, deltaTime);
+            //            vel.value.addScaledVector(windForce, deltaTime);
 
             // Add wind force to the accumulator (deltaTime applied in PhysicsSystem integrator)
             forceComp.force.add(windForce);

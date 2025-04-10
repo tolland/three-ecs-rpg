@@ -3,3 +3,4 @@ export * from './Component'; // Base class for components
 export * from './Entity';
 export * from './System';
 export * from './World';
+

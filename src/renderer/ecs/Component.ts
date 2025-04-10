@@ -4,6 +4,12 @@
 export abstract class Component {
     // Components primarily hold data.
     // Use specific properties in inheriting classes.
+    attach(): void {
+
+    }
+    detach(): void {
+        
+    }
 }
 
 // Example Component:

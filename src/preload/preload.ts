@@ -1,13 +1,19 @@
 // src/preload/preload.ts
 import { contextBridge, ipcRenderer } from 'electron';
 import { AppAction } from '@shared/core';
+import IpcRendererEvent = Electron.IpcRendererEvent;
 
 // Define the shape of the arguments coming over IPC
 // Keep this consistent with what main process sends in dbusService.ts
 interface DbusActionArgs {
     action: AppAction | string;
-    payload?: any;
+    payload?: Record<string, unknown>;
 }
+
+// Define common types for IPC handlers and responses
+type IpcRequestArgs = Record<string, unknown>;
+type IpcResponseData = unknown;
+type IpcHandler = (args: IpcRequestArgs) => Promise<IpcResponseData> | IpcResponseData;
 
 // Example: Expose a simple API
 contextBridge.exposeInMainWorld('electronIPC', {
@@ -35,17 +41,20 @@ contextBridge.exposeInMainWorld('electronIPC', {
             console.log('Preload: Removed dbus-action listener.');
         };
     },
-    handle: (channel: string, listener: (args: any) => Promise<any> | any) => {
+    /**
+     * code defines a method handle that allows the renderer process in an Electron application to listen for messages from the main process on a specified IPC (Inter-Process Communication) channel. This method is part of the API exposed to the renderer process via the contextBridge.
+     */
+    handle: (channel: string, listener: IpcHandler) => {
         ipcRenderer.on(channel, (event, args) => listener(args));
     },
     // Renderer process calls OUT -> Main process handles (if needed later)
-    invoke: (channel: string, args: any): Promise<any> => {
+    invoke: (channel: string, args?: IpcRequestArgs): Promise<IpcResponseData> => {
         return ipcRenderer.invoke(channel, args);
     },
     // Add a handler for requests from main process
     handleRequest: (
         channel: string,
-        handler: (args: any) => Promise<any> | any,
+        handler: IpcHandler,
     ) => {
         const requestChannel = `${channel}:request`;
 
@@ -67,6 +76,14 @@ contextBridge.exposeInMainWorld('electronIPC', {
                 });
             }
         });
+    },
+    // Function for Renderer to listen for one-way messages FROM Main
+    on: (channel: string, listener: (args: IpcRequestArgs) => void) => {
+        const handler = (event: IpcRendererEvent, args: IpcRequestArgs) => listener(args);
+        ipcRenderer.on(channel, handler);
+        return () => {
+            ipcRenderer.removeListener(channel, handler);
+        };
     },
 });
 

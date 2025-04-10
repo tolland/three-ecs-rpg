@@ -3,7 +3,7 @@ import { System } from '@ecs/System';
 import { World } from '@ecs/World';
 import { AudioSourceComponent, RenderableComponent } from '@ecs/components';
 import { appEventManager, AppEventManager } from '@core/AppEventManager';
-import { audioManager, AudioManager } from '@core/AudioManager'; // Use singletons or inject
+import { audioManager, AudioManager } from '@core/AudioManager';
 
 export class AudioSystem extends System {
     constructor(
@@ -49,9 +49,9 @@ export class AudioSystem extends System {
         action: string;
     }) => {
         // Payload.action might be "JUMP", "SAY_HELLO", "FOOTSTEP_LEFT", etc.
-        console.log(
-            `AudioSystem: Player Action Event for Entity ${payload.entityId}, action: ${payload.action}`,
-        ); // Debug
+        // console.log(
+        //     `AudioSystem: Player Action Event for Entity ${payload.entityId}, action: ${payload.action}`,
+        // ); // Debug
         this.playSoundForEntity(payload.entityId, payload.action);
     };
 
@@ -85,6 +85,8 @@ export class AudioSystem extends System {
     // --- Core Sound Playing Logic ---
 
     private playSoundForEntity(entityId: number, trigger: string): void {
+        //console.log(`AudioSystem: Attempting to play sound for Entity ${entityId}, trigger: ${trigger}`); // Debug
+
         const audioComp = this.world.getComponent(
             entityId,
             AudioSourceComponent,
@@ -96,7 +98,7 @@ export class AudioSystem extends System {
 
         const {
             key,
-            volume = 1,
+            volume = 0.5,
             loop = false,
             positional = true,
             refDistance,
@@ -148,9 +150,9 @@ export class AudioSystem extends System {
                 if (audioComp.positionalAudio.isPlaying)
                     audioComp.positionalAudio.stop(); // Stop previous if any
                 audioComp.positionalAudio.play();
-                console.log(
-                    `AudioSystem: Playing positional sound "${key}" for entity ${entityId} trigger "${trigger}"`,
-                );
+                // console.log(
+                //     `AudioSystem: Playing positional sound "${key}" for entity ${entityId} trigger "${trigger}"`,
+                // );
             }
         } else {
             // Handle Generic (non-positional) Audio

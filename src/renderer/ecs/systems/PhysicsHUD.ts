@@ -1,6 +1,6 @@
 import { System } from '@ecs/System';
 import { World } from '@ecs/World';
-import { GUI } from 'dat.gui';
+import GUI from 'lil-gui';
 import { physicsConfigManager } from '@core/PhysicsConfigManager';
 
 export class PhysicsHUD extends System {

@@ -3,18 +3,17 @@ import { Entity } from './Entity';
 import { Component } from './Component';
 import { System } from './System';
 import { NameComponent } from '@ecs/components';
-import * as THREE from 'three';
-// Type for Component Constructor (Class)
-type ComponentConstructor<T extends Component> = new (...args: any[]) => T;
-// Type for Component Instance
-type ComponentInstance = Component;
+import { Serializer } from '@shared/serialization/Serializer';
+import { three_replacer } from '@shared/serialization/three_replacer';
+import { EntityInfo, ComponentConstructor, ComponentInstance } from './types/World';
 
-// Helper type for JSON stringify
-type Replacer = (key: string, value: any) => any;
 
 export class World {
-    private entities: Map<Entity, Map<Function, ComponentInstance>> = new Map();
-    private systems: System[] = [];
+    private entities: Map<
+        Entity,
+        Map<ComponentConstructor<Component>, ComponentInstance>
+    > = new Map();
+    private _systems: System[] = [];
     private nextEntityId: Entity = 0;
     // Optional: Keep track of entities recently added/removed for system optimization
     // private entitiesToRemove: Set<Entity> = new Set();
@@ -41,7 +40,8 @@ export class World {
         const components = this.entities.get(entity);
         if (components) {
             // Use component's constructor as the key for easy lookup by type
-            components.set(component.constructor, component);
+            const constructor = Object.getPrototypeOf(component).constructor as ComponentConstructor<Component>;
+            components.set(constructor , component);
             // console.debug(`ECS: Added ${component.constructor.name} to Entity ${entity}`);
         } else {
             console.warn(
@@ -78,12 +78,72 @@ export class World {
 
     // --- System Management ---
     addSystem(system: System): void {
-        this.systems.push(system);
+        this._systems.push(system);
         // if (system.init) system.init(); // Call init if defined
     }
 
-    getSystem<T extends System>(systemType: new (...args: any[]) => T): T | undefined {
-        return this.systems.find(system => system instanceof systemType) as T | undefined;
+    getSystem<T extends System>(
+        systemType: new (...args: any) => T,
+    ): T | undefined {
+        return this._systems.find((system) => system instanceof systemType) as
+            | T
+            | undefined;
+    }
+
+    get systems(): System[] {
+        return this._systems;
+    }
+
+    /**
+     * This was created for the dbus ipc call. it is splitting the results
+     * into {name, System} for easier rendering on client.
+     */
+    // *@TODO this is not returning pure json anymore
+    getSystemsDataAsJson(): Array<[string, string]> | null {
+        if (!this._systems) return null;
+
+        try {
+            return this._systems.map((system) => [
+                system.constructor.name,
+                Serializer.serializeToJSON(system),
+            ]);
+        } catch (e) {
+            console.dir(this._systems);
+            console.error(`Error stringifying systems`, e);
+            // TDOO need strategy for passing error from renderer through
+            // to the dbus ipc that doesn't require weird types
+            // return JSON.stringify({
+            //     __error__: 'Failed to stringify systems',
+            // });
+            return null;
+        }
+    }
+
+    // --- Get system by NAME ---
+    getSystemByName(systemName: string): System | undefined {
+        for (const instance of this._systems) {
+            if (instance.constructor.name === systemName) {
+                return instance;
+            }
+        }
+        return undefined;
+    }
+
+    getSystemData(systemName: string) {
+        if (!this._systems) return null;
+
+        try {
+            return this._systems.map((system) => [
+                system.constructor.name,
+                Serializer.serializeToJSON(system),
+            ]);
+        } catch (e) {
+            console.dir(this._systems);
+            console.error(`Error stringifying systems`, e);
+            return JSON.stringify({
+                __error__: 'Failed to stringify systems',
+            });
+        }
     }
 
     // --- Querying ---
@@ -125,8 +185,8 @@ export class World {
         return undefined;
     }
 
-    getAllEntitiesWithName(): { id: Entity; name: string }[] {
-        const result: { id: Entity; name: string }[] = [];
+    getAllEntitiesWithName(): EntityInfo[] {
+        const result: EntityInfo[] = [];
         this.entities.forEach(
             (
                 components: Map<Function, ComponentInstance>,
@@ -158,49 +218,10 @@ export class World {
         componentName: string,
     ): string | null {
         const component = this.getComponentByName(entityId, componentName);
-        console.log(
-            `Stringifying component ${componentName} for entity ${entityId}:`,
-            component,
-        );
         if (!component) return null;
-        // Custom replacer for complex types (like THREE objects)
-        const replacer: Replacer = (key, value) => {
-            if (value instanceof THREE.Vector3) {
-                return { x: value.x, y: value.y, z: value.z }; // Simple object representation
-            }
-            if (value instanceof THREE.Vector2) {
-                return { x: value.x, y: value.y };
-            }
-            if (value instanceof THREE.Quaternion) {
-                return { x: value.x, y: value.y, z: value.z, w: value.w };
-            }
-            if (value instanceof THREE.Euler) {
-                return {
-                    x: value.x,
-                    y: value.y,
-                    z: value.z,
-                    order: value.order,
-                };
-            }
-            if (value instanceof THREE.Color) {
-                return value.getHexString(); // Represent color as hex string
-            }
-            if (value instanceof Map) {
-                return Object.fromEntries(value); // Convert Map to plain object
-            }
-            if (value instanceof THREE.Object3D) {
-                // Avoid serializing entire scene graph nodes!
-                return `[Object3D: ${value.name || value.type} ID:${value.id}]`;
-            }
-            // Add more handlers for other complex types if needed
-            return value; // Keep other values as they are
-        };
-        console.log(
-            `Stringifying component ${componentName} for entity ${entityId}:`,
-            component,
-        );
+
         try {
-            return JSON.stringify(component, replacer, 2); // Pretty print with 2 spaces
+            return JSON.stringify(component, three_replacer, 2); // Pretty print with 2 spaces
         } catch (e) {
             console.error(
                 `Error stringifying component ${componentName} for entity ${entityId}:`,
@@ -209,6 +230,56 @@ export class World {
             return JSON.stringify({
                 __error__: 'Failed to stringify component',
             });
+        }
+    }
+
+    /**
+     * Utility method to update a component's properties from another object.
+     * preserving the types of the original component.
+     * @param target
+     * @param source
+     * @private
+     */
+    updateComponent(target: Record<string, any>, source: Record<string, unknown>): void {
+        for (const key of Object.keys(source)) {
+            if (
+                source[key] &&
+                typeof source[key] === 'object' &&
+                !Array.isArray(source[key])
+            ) {
+                if (!target[key] || typeof target[key] !== 'object') {
+                    target[key] = {};
+                }
+                this.updateComponent(
+                    target[key] as Record<string, unknown>,
+                    source[key] as Record<string, unknown>
+                );
+            } else {
+                target[key] = source[key];
+            }
+        }
+    }
+
+    setComponentDataFromJson(
+        entityId: Entity,
+        componentName: string,
+        jsonData: string,
+    ): boolean {
+        const component = this.getComponentByName(entityId, componentName);
+        if (!component) return false;
+
+        try {
+            const parsedData = JSON.parse(jsonData);
+
+            this.updateComponent(component, parsedData);
+
+            return true;
+        } catch (e) {
+            console.error(
+                `Error parsing JSON data for component ${componentName} of entity ${entityId}:`,
+                e,
+            );
+            return false;
         }
     }
 
@@ -224,7 +295,7 @@ export class World {
         // Process entity removals queued in the previous frame (if using queueing)
         // this.processEntityRemovals();
 
-        for (const system of this.systems) {
+        for (const system of this._systems) {
             system.update(deltaTime);
         }
     }
@@ -237,4 +308,23 @@ export class World {
     //         this.entitiesToRemove.clear();
     //     }
     // }
+    clear() {
+        // Clear systems of state in reverse creation order
+        for (let i = this._systems.length - 1; i >= 0; i--) {
+            this._systems[i].clear();
+        }
+        const entityKeys = Array.from(this.entities.keys()).reverse();
+        for (const entity of entityKeys) {
+            const componentMap = this.entities.get(entity);
+            if (componentMap) {
+                for (const [key, component] of componentMap) {
+                    this.removeComponent(entity, key);
+                }
+            }
+            this.destroyEntity(entity);
+        }
+    }
+    destroy() {
+        this.clear();
+    }
 }

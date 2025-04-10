@@ -10,16 +10,24 @@ export class AudioManager {
         console.log('AudioManager initialized.');
     }
 
+    async loadSounds(
+        sounds: { key: string; path: string }[],
+    ): Promise<Awaited<AudioBuffer | null>[]> {
+        return Promise.all(
+            sounds.map(({ key, path }) => this.loadSound(key, path)),
+        );
+    }
+
     // Preload a sound or load on demand
     async loadSound(key: string, path: string): Promise<AudioBuffer | null> {
         if (this.cache.has(key)) {
             return this.cache.get(key)!;
         }
         try {
-            console.log(`AudioManager: Loading sound "${key}" from ${path}`);
+            // console.log(`AudioManager: Loading sound "${key}" from ${path}`);
             const buffer = await this.audioLoader.loadAsync(path);
             this.cache.set(key, buffer);
-            console.log(`AudioManager: Loaded sound "${key}"`);
+            // console.log(`AudioManager: Loaded sound "${key}"`);
             return buffer;
         } catch (error) {
             console.error(

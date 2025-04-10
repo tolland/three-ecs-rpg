@@ -1,6 +1,7 @@
 // src/renderer/core/PhysicsConfigManager.ts
 
-import { ConfigMetadata } from '@core/UberConfigManager';
+import { ConfigMetadata, ConfigSetter } from '@core/UberConfigManager';
+import { Config, IConfigManager } from '@core/ConfigManager';
 
 export interface PlayerPhysicsConfig {
     walkSpeed: number;
@@ -9,7 +10,7 @@ export interface PlayerPhysicsConfig {
     stopDampingMultiplier: number;
 }
 
-export interface PhysicsConfig {
+export interface PhysicsConfig extends Config{
     baseGravity: number;
     globalDamping: number;
     player: PlayerPhysicsConfig;
@@ -27,7 +28,7 @@ const DEFAULT_CONFIG: PhysicsConfig = {
     },
 };
 
-export class PhysicsConfigManager {
+export class PhysicsConfigManager implements IConfigManager {
     public config: PhysicsConfig = DEFAULT_CONFIG;
     private isLoaded = false;
 
@@ -44,6 +45,16 @@ export class PhysicsConfigManager {
                 `PhysicsConfigManager: Unknown subKey "${subKey}" from UberConfigManager`,
             );
         }
+    }
+
+
+    getSetters(): Record<string, ConfigSetter> {
+        return {
+            'baseGravity': this.setBaseGravity.bind(this),
+            'globalDamping': this.setGlobalDamping.bind(this),
+            'player.walkSpeed': this.setPlayerWalkSpeed.bind(this),
+            // ... etc ...
+        };
     }
 
     // Method to provide metadata (example)

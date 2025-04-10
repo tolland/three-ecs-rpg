@@ -1,30 +1,64 @@
 // src/renderer/ecs/systems/CameraSystem.ts
+import { ActiveView } from '@core/ActiveView';
+import { audioManager } from '@core/AudioManager';
+import {
+    createDefaultViewConfig,
+    ViewConfiguration,
+} from '@core/ViewConfiguration';
+import {
+    CameraID,
+    generateId,
+    ViewConfigID,
+    ViewportID,
+} from '@core/ViewportLayout';
 import { System } from '@ecs/System';
 import { World } from '@ecs/World';
 import {
     CameraMode,
-    CameraTargetComponent,
-    NeedsUpdateComponent,
     PositionComponent,
     RotationComponent,
 } from '@ecs/components';
-import * as THREE from 'three';
-import { Octree } from 'three/examples/jsm/math/Octree.js';
-import { Entity } from '@ecs/Entity';
+import { CollisionWorld } from '@renderer/logic/CollisionWorld';
 import { RenderLayers } from '@setup/sceneSetup';
-import { audioManager } from '@core/AudioManager';
+import { ViewportLayoutSystem } from '@systems/ViewportLayoutSystem';
+import * as THREE from 'three';
+import { Serializer } from '@shared/serialization/Serializer';
+import { serializeForConsole } from '@renderer/utils/formatting';
+import { appEventManager, AppEventManager } from '@renderer/core';
+import { AppAction } from '@shared/core';
+import { LayoutEvent } from '@shared/ipc/ips.types';
+import { RegisterManager } from '@core/ManagerRegistry';
 
-interface ManagedCamera {
-    camera: THREE.PerspectiveCamera;
-    viewport: THREE.Vector4; // x, y, width, height (in screen percentages 0-1)
-    targetEntity: number | null; // Entity this camera is currently tracking
-}
-
+/**
+ *
+ * manage pools of cameras and view configurations, driven by ActiveView links.
+ *
+ * Remove direct viewport/camera management from CameraSystem.
+ */
+@RegisterManager()
 export class CameraSystem extends System {
-    private cameras: Map<string, ManagedCamera> = new Map();
-    private rendererSize = new THREE.Vector2();
+    // Pools
+    @Serializer.Serialize()
+    private cameraInstances: Map<CameraID, THREE.PerspectiveCamera> = new Map();
+
+    @Serializer.Serialize()
+    private viewConfigurations: Map<ViewConfigID, ViewConfiguration> =
+        new Map();
+
+    @Serializer.Serialize({outputKey: "activeViews"})
+    private _activeViews: Map<string, ActiveView> = new Map(); // Key: ActiveView ID
+
+    // Dependencies
+    private layoutSystem: ViewportLayoutSystem | undefined; // Must be set after systems created
     // Need access to world geometry for raycasting
-    private worldOctree: Octree | null = null; // Get this from CollisionSystem or pass directly
+    private collisionWorld: CollisionWorld | null = null;
+
+    // Focused View Tracking
+    @Serializer.Serialize({outputKey: "focusedActiveViewId"})
+    private _focusedActiveViewId: string | null = null;
+
+    // @TODO implement world chunks
+    private chunks: Map<string, CollisionWorld> = new Map(); // Key: chunk key "x_z"
 
     // Reusable objects for calculations
     private spherical = new THREE.Spherical();
@@ -32,13 +66,13 @@ export class CameraSystem extends System {
     private idealCameraPosition = new THREE.Vector3();
     private targetLookAt = new THREE.Vector3();
     private raycaster = new THREE.Raycaster();
-    private cameraTargetPosition = new THREE.Vector3(); // Position of the target entity
     private listener: THREE.AudioListener;
 
     // Inject Octree (or CollisionSystem)
     constructor(
         world: World,
         private scene: THREE.Scene,
+        private events: AppEventManager = appEventManager,
     ) {
         super(world);
         // Find collision system to get Octree? Or require Octree in constructor?
@@ -46,349 +80,542 @@ export class CameraSystem extends System {
         this.listener = new THREE.AudioListener();
         audioManager.listener = this.listener; // Provide listener to the manager
         console.log('AudioListener created and assigned to AudioManager.');
+        this.registerListeners();
     }
 
-    setWorldOctree(octree: Octree) {
-        this.worldOctree = octree;
-        console.log('CameraSystem: World Octree set.');
+    registerListeners() {
+        this.events.on(
+            AppAction.LAYOUT_UPDATED,
+            this.handleLayoutUpdated.bind(this),
+        );
     }
 
-    // Register a camera to be managed by the system
-    addCamera(
-        id: string,
-        camera: THREE.PerspectiveCamera,
-        viewport: THREE.Vector4 = new THREE.Vector4(0, 0, 1, 1),
-    ): void {
-        // Assign viewport to userData *before* calling updateCameraProjection
-        camera.userData.viewport = viewport.clone(); // Clone to avoid unexpected shared references
-        this.cameras.set(id, { camera, viewport, targetEntity: null }); // Store the original viewport object here
-        camera.layers.enable(RenderLayers.RENDER_LAYER);
-        camera.layers.disable(RenderLayers.PLAYER_LAYER); // <<<<< Disable player layer for game cameras
-        this.scene.add(camera); // Add camera to the scene
-        this.updateCameraProjection(camera); // Now userData.viewport exists
+    private handleLayoutUpdated(event: LayoutEvent): void {
+        console.log(
+            `saw event with payload ${serializeForConsole(Serializer.serialize(event))}`,
+        );
+        switch (event.type) {
+            case 'leaf-split':
+                // Handle leaf split events
+                if (event.sourceNodeId && event.newNodeIds) {
+                    event.newNodeIds.forEach((newNodeId: string) => {
+                        const existingView =
+                            this.getActiveViewForViewport(newNodeId);
+                        console.log('handling leaf split');
+                    });
+                }
+                break;
+            case 'view-assigned':
+                if (event.sourceNodeId && event.viewId) {
+                    const activeView = this.getActiveView(event.viewId);
+                    const leaf = this.layoutSystem?.findLeaf(
+                        event.sourceNodeId,
+                    );
+                    if (activeView && leaf) {
+                        // Update the existing view's viewport
+                        activeView.viewportId = event.sourceNodeId;
+                    } else {
+                        console.warn(
+                            `CameraSystem: ActiveView ${event.viewId} not found.`,
+                        );
+                    }
+                }
+                break;
+        }
     }
 
-    getCamera(id: string): THREE.PerspectiveCamera | undefined {
-        return this.cameras.get(id)?.camera;
+    // Call this after all systems are created in ecsSetup
+    registerDependencies() {
+        this.layoutSystem = this.world.getSystem(ViewportLayoutSystem);
+        if (!this.layoutSystem)
+            console.error('CameraSystem: ViewportLayoutSystem not found!');
+        // CollisionWorld is set via setCollisionWorld
+    }
+
+    getCameraInstance(cameraId: string): THREE.PerspectiveCamera | undefined {
+        return this.cameraInstances.get(cameraId);
+    }
+
+    setCollisionWorld(collisionWorld: CollisionWorld | null) {
+        this.collisionWorld = collisionWorld;
+        console.log('CameraSystem: Collision World set.');
     }
 
     // Call this when the renderer size changes
     setRendererSize(width: number, height: number): void {
-        this.rendererSize.set(width, height);
+        // this.rendererSize.set(width, height);
         // Use a temporary array to store camera values to avoid iteration error
-        const camerasArray = Array.from(this.cameras.values());
-        for (const managedCam of camerasArray) {
-            this.updateCameraProjection(managedCam.camera);
+        // const camerasArray = Array.from(this.cameras.values());
+        // for (const managedCam of camerasArray) {
+        //     this.updateCameraProjection(managedCam.camera);
+        // }
+    }
+
+    // Methods called by WorldStreamingSystem @TODO
+    addChunk(key: string, octree: CollisionWorld) {
+        console.log(`CollisionSystem: Adding CollisionWorld for chunk ${key}`);
+        this.chunks.set(key, octree);
+    }
+
+    removeChunk(key: string) {
+        console.log(
+            `CollisionSystem: Removing CollisionWorld for chunk ${key}`,
+        );
+        this.chunks.delete(key);
+    }
+
+    // --- Pool Management API ---
+    createCameraInstance(
+        id: CameraID,
+        fov = 75,
+        near = 0.1,
+        far = 1000,
+    ): THREE.PerspectiveCamera | null {
+        if (this.cameraInstances.has(id)) {
+            console.warn(
+                `CameraSystem: Camera instance with ID ${id} already exists.`,
+            );
+            return this.cameraInstances.get(id)!;
+        }
+        const camera = new THREE.PerspectiveCamera(fov, 1, near, far); // Aspect ratio set per-frame by RenderSystem
+        camera.name = `ManagedCamera_${id}`;
+        camera.layers.enable(RenderLayers.RENDER_LAYER); // Set default layers
+        camera.layers.enable(RenderLayers.PLAYER_LAYER);
+        this.cameraInstances.set(id, camera);
+        this.scene.add(camera); // Add to scene immediately
+        console.log(`CameraSystem: Created camera instance ${id}`);
+        return camera;
+    }
+
+    destroyCameraInstance(id: CameraID): void {
+        const camera = this.cameraInstances.get(id);
+        if (camera) {
+            this.scene.remove(camera);
+            this.cameraInstances.delete(id);
+            // TODO: Ensure no ActiveView is using this camera ID
+            console.log(`CameraSystem: Destroyed camera instance ${id}`);
         }
     }
 
-    private updateCameraProjection(camera: THREE.PerspectiveCamera): void {
-        const aspect =
-            (this.rendererSize.x * camera.userData.viewport.z) /
-            (this.rendererSize.y * camera.userData.viewport.w); // Adjust aspect based on viewport dimensions
-        if (!isNaN(aspect) && aspect > 0) {
-            camera.aspect = aspect;
-            camera.updateProjectionMatrix();
+    createViewConfiguration(
+        id: ViewConfigID,
+        name: string,
+        initialState?: Partial<ViewConfiguration>,
+    ): ViewConfiguration {
+        if (this.viewConfigurations.has(id)) {
+            console.warn(
+                `CameraSystem: View configuration with ID ${id} already exists.`,
+            );
+            return this.viewConfigurations.get(id)!;
+        }
+        const newConfig = {
+            ...createDefaultViewConfig(id, name),
+            ...initialState,
+        };
+        this.viewConfigurations.set(id, newConfig);
+        console.log(`CameraSystem: Created view configuration ${id} (${name})`);
+        return newConfig;
+    }
+
+    getViewConfiguration(id: ViewConfigID): ViewConfiguration | undefined {
+        return this.viewConfigurations.get(id);
+    }
+
+    updateViewConfiguration(
+        id: ViewConfigID,
+        updates: Partial<ViewConfiguration>,
+    ): boolean {
+        const config = this.viewConfigurations.get(id);
+        if (config) {
+            Object.assign(config, updates);
+            // Maybe clamp values here?
+            return true;
+        }
+        return false;
+    }
+
+    destroyViewConfiguration(id: ViewConfigID): void {
+        // TODO: Ensure no ActiveView is using this config ID
+        this.viewConfigurations.delete(id);
+    }
+
+    // --- ActiveView Management ----
+
+    get activeViews(): Map<string, ActiveView> {
+        return this._activeViews;
+    }
+
+    getActiveView(id: string): ActiveView | undefined {
+        return this._activeViews.get(id);
+    }
+
+    // Get ActiveView associated with a Viewport Leaf
+    getActiveViewForViewport(viewportId: ViewportID): ActiveView | undefined {
+        const leaf = this.layoutSystem?.findLeaf(viewportId);
+        return leaf?.activeViewId
+            ? this._activeViews.get(leaf.activeViewId)
+            : undefined;
+    }
+
+    createActiveView(
+        viewportId: ViewportID,
+        cameraId: CameraID,
+        viewConfigId: ViewConfigID,
+    ): ActiveView | null {
+        if (!this.layoutSystem?.findLeaf(viewportId)) {
+            console.error(
+                `Cannot create ActiveView: Viewport ${viewportId} not found.`,
+            );
+            return null;
+        }
+        if (!this.cameraInstances.has(cameraId)) {
+            console.error(
+                `Cannot create ActiveView: Camera ${cameraId} not found.`,
+            );
+            return null;
+        }
+        if (!this.viewConfigurations.has(viewConfigId)) {
+            console.error(
+                `Cannot create ActiveView: ViewConfig ${viewConfigId} not found.`,
+            );
+            return null;
+        }
+
+        const id = generateId({ prefix: 'av-' }); // Unique ID for the ActiveView link itself
+        const activeView: ActiveView = {
+            id,
+            viewportId,
+            cameraId,
+            viewConfigId,
+        };
+        this._activeViews.set(id, activeView);
+
+        // Assign this view to the layout leaf
+        this.layoutSystem.assignViewToLeaf(viewportId, id);
+
+        // Set initial focus if nothing else is focused
+        if (this._focusedActiveViewId === null) {
+            this.setFocus(id);
+        }
+
+        console.log(
+            `CameraSystem: Created ActiveView ${id} linking Viewport:${viewportId}, Camera:${cameraId}, Config:${viewConfigId}`,
+        );
+        return activeView;
+    }
+
+    destroyActiveView(id: string): void {
+        const activeView = this._activeViews.get(id);
+        if (activeView) {
+            console.dir(activeView);
+            //  console.log(`${Serializer.serializeToJSON(activeView)}`);
+            // Unassign from viewport leaf
+            this.layoutSystem?.assignViewToLeaf(activeView.viewportId, null);
+            this._activeViews.delete(id);
+            if (this._focusedActiveViewId === id) {
+                this._focusedActiveViewId = null; // Or set focus to another view
+            }
         }
     }
 
-    // Get viewport settings for rendering
-    getViewports(): ManagedCamera[] {
-        return Array.from(this.cameras.values());
+    get focusedActiveViewId(): string | null {
+        return this._focusedActiveViewId;
     }
+
+    // --- Focus Management ---
+    setFocus(activeViewId: string | null): void {
+        if (activeViewId && !this._activeViews.has(activeViewId)) {
+            console.warn(
+                `CameraSystem: Cannot set focus to non-existent ActiveView ${activeViewId}`,
+            );
+            return;
+        }
+        this._focusedActiveViewId = activeViewId;
+        console.log(`CameraSystem: Focus set to ActiveView ${activeViewId}`);
+        // TODO: Emit focus change event? Trigger pointer lock request/release?
+    }
+
+    getFocusedActiveView(): ActiveView | undefined {
+        return this._focusedActiveViewId
+            ? this._activeViews.get(this._focusedActiveViewId)
+            : undefined;
+    }
+
+    // Register a camera to be managed by the system
+    // addCamera(
+    //     id: string,
+    //     camera: THREE.PerspectiveCamera,
+    //     viewport: THREE.Vector4 = new THREE.Vector4(0, 0, 1, 1),
+    // ): void {
+    //     // Assign viewport to userData *before* calling updateCameraProjection
+    //     camera.userData.viewport = viewport.clone(); // Clone to avoid unexpected shared references
+    //     this.cameras.set(id, { camera, viewport, targetEntity: null }); // Store the original viewport object here
+    //     camera.layers.enable(RenderLayers.RENDER_LAYER);
+    //     camera.layers.disable(RenderLayers.PLAYER_LAYER); // <<<<< Disable player layer for game cameras
+    //     this.scene.add(camera); // Add camera to the scene
+    //     this.updateCameraProjection(camera); // Now userData.viewport exists
+    // }
+
+    // getCamera(id: string): THREE.PerspectiveCamera | undefined {
+    //     return this.cameras.get(id)?.camera;
+    // }
+
+    // private updateCameraProjection(camera: THREE.PerspectiveCamera): void {
+    //     const aspect =
+    //         (this.rendererSize.x * camera.userData.viewport.z) /
+    //         (this.rendererSize.y * camera.userData.viewport.w); // Adjust aspect based on viewport dimensions
+    //     if (!isNaN(aspect) && aspect > 0) {
+    //         camera.aspect = aspect;
+    //         camera.updateProjectionMatrix();
+    //     }
+    // }
 
     // --- Method to change camera mode ---
-    setCameraMode(cameraId: string, mode: CameraMode, targetEntityId?: Entity) {
-        const managedCam = this.cameras.get(cameraId);
-        if (!managedCam) {
-            console.warn(
-                `CameraSystem: Cannot set mode for unknown camera ID: ${cameraId}`,
-            );
-            return;
-        }
+    // setCameraMode(cameraId: string, mode: CameraMode, targetEntityId?: Entity) {
+    //     const managedCam = this.cameras.get(cameraId);
+    //     if (!managedCam) {
+    //         console.warn(
+    //             `CameraSystem: Cannot set mode for unknown camera ID: ${cameraId}`,
+    //         );
+    //         return;
+    //     }
+    //
+    //     let entityToModify = targetEntityId ?? managedCam.targetEntity;
+    //     if (entityToModify === null) {
+    //         console.warn(
+    //             `CameraSystem: Cannot set mode for camera ${cameraId} without a target entity.`,
+    //         );
+    //         return;
+    //     }
+    //
+    //     const targetComp = this.world.getComponent(
+    //         entityToModify,
+    //         CameraTargetComponent,
+    //     );
+    //     if (targetComp) {
+    //         console.log(
+    //             `Setting camera mode for entity ${entityToModify} on camera ${cameraId} to ${mode}`,
+    //         );
+    //         targetComp.mode = mode;
+    //         // Reset/initialize things if needed when switching modes
+    //         if (mode !== CameraMode.FIRST_PERSON) {
+    //             targetComp.currentDistance = targetComp.desiredDistance; // Start at desired distance
+    //         }
+    //         // Mark entity for potential update if mode change affects rendering immediately
+    //         this.world.addComponent(entityToModify, new NeedsUpdateComponent());
+    //     } else {
+    //         console.warn(
+    //             `CameraSystem: Target entity ${entityToModify} does not have CameraTargetComponent.`,
+    //         );
+    //     }
+    // }
 
-        let entityToModify = targetEntityId ?? managedCam.targetEntity;
-        if (entityToModify === null) {
-            console.warn(
-                `CameraSystem: Cannot set mode for camera ${cameraId} without a target entity.`,
-            );
-            return;
-        }
-
-        const targetComp = this.world.getComponent(
-            entityToModify,
-            CameraTargetComponent,
-        );
-        if (targetComp) {
-            console.log(
-                `Setting camera mode for entity ${entityToModify} on camera ${cameraId} to ${mode}`,
-            );
-            targetComp.mode = mode;
-            // Reset/initialize things if needed when switching modes
-            if (mode !== CameraMode.FIRST_PERSON) {
-                targetComp.currentDistance = targetComp.desiredDistance; // Start at desired distance
-            }
-            // Mark entity for potential update if mode change affects rendering immediately
-            this.world.addComponent(entityToModify, new NeedsUpdateComponent());
-        } else {
-            console.warn(
-                `CameraSystem: Target entity ${entityToModify} does not have CameraTargetComponent.`,
-            );
-        }
-    }
-
+    // --- Update Loop (Refactored) ---
     update(deltaTime: number): void {
-        const targetEntities = this.world.queryEntities([
-            PositionComponent,
-            CameraTargetComponent,
-        ]);
+        // Iterate through the ACTIVE VIEWS, not cameras or targets directly
+        this._activeViews.forEach((activeView) => {
+            const viewConfig: ViewConfiguration | undefined =
+                this.viewConfigurations.get(activeView.viewConfigId);
+            const camera = this.cameraInstances.get(activeView.cameraId);
 
-        // --- Assign Targets ---
-        // Reset targets first
-        const camerasArray = Array.from(this.cameras.values());
-        for (const managedCam of camerasArray) {
-            managedCam.targetEntity = null;
-        }
-        // Find entities that want a camera
-        for (const entity of targetEntities) {
-            const targetComp = this.world.getComponent(
-                entity,
-                CameraTargetComponent,
-            )!;
-            const managedCam = this.cameras.get(targetComp.cameraId);
-            if (managedCam) {
-                managedCam.targetEntity = entity; // Assign this entity as the target
+            if (!viewConfig || !camera) {
+                console.warn(
+                    `CameraSystem: Missing config or camera for ActiveView ${activeView.id}`,
+                );
+                return; // Skip this view if data is missing
             }
-        }
 
-        let activeCamera: THREE.PerspectiveCamera | null = null;
+            let targetPos: THREE.Vector3 | null = null;
+            let targetRot: THREE.Quaternion | null = null;
 
-        // --- Update Camera Positions ---
-        this.cameras.forEach((managedCam: ManagedCamera, cameraId: string) => {
-            if (managedCam.targetEntity !== null) {
-                const targetPosComp = this.world.getComponent(
-                    managedCam.targetEntity,
+            if (viewConfig.targetEntity !== null) {
+                const posComp = this.world.getComponent(
+                    viewConfig.targetEntity,
                     PositionComponent,
                 );
-                const targetRotComp = this.world.getComponent(
-                    managedCam.targetEntity,
+                const rotComp = this.world.getComponent(
+                    viewConfig.targetEntity,
                     RotationComponent,
                 );
-                const targetCamComp = this.world.getComponent(
-                    managedCam.targetEntity,
-                    CameraTargetComponent,
-                );
+                if (posComp) targetPos = posComp.value;
+                if (rotComp) targetRot = rotComp.value;
+            }
 
-                if (targetPosComp && targetRotComp && targetCamComp) {
-                    this.cameraTargetPosition.copy(targetPosComp.value); // Base position of the target
-                    this.targetLookAt
-                        .copy(this.cameraTargetPosition)
-                        .add(targetCamComp.lookAtOffset); // Point camera looks at
+            // Calculate target look-at point (relative to targetPos or world origin for freecam)
+            if (viewConfig.mode === 'FREECAM') {
+                this.targetLookAt
+                    .copy(viewConfig.freecamPosition)
+                    .add(
+                        new THREE.Vector3(0, 0, -1).applyQuaternion(
+                            viewConfig.freecamRotation,
+                        ),
+                    );
+            } else if (targetPos) {
+                this.targetLookAt
+                    .copy(targetPos)
+                    .add(viewConfig.thirdPersonLookAtOffset);
+            } else {
+                this.targetLookAt.set(0, 0, 0); // Fallback
+            }
 
-                    const camera = managedCam.camera;
+            // --- Handle Different Camera Modes ---
+            switch (viewConfig.mode) {
+                case 'FREECAM':
+                    // Position/Rotation directly from config state
+                    camera.position.copy(viewConfig.freecamPosition);
+                    camera.quaternion.copy(viewConfig.freecamRotation);
+                    break;
 
-                    // --- Handle Different Camera Modes ---
-                    switch (targetCamComp.mode) {
-                        case CameraMode.FIRST_PERSON:
-                            // Apply offset in local space of the target entity
-                            const worldOffset = targetCamComp.firstPersonOffset
-                                .clone()
-                                .applyQuaternion(targetRotComp.value);
-                            camera.position
-                                .copy(this.cameraTargetPosition)
-                                .add(worldOffset);
-                            camera.quaternion.copy(targetRotComp.value); // Look where entity looks
-                            break;
-
-                        case CameraMode.THIRD_PERSON_GLOBAL:
-                        case CameraMode.THIRD_PERSON_ENTITY:
-                            // Smooth current distance towards desired distance
-                            const lerpFactor = 1.0 - Math.exp(-deltaTime * 10); // Exponential smoothing factor (adjust 10 for speed)
-                            targetCamComp.currentDistance =
-                                THREE.MathUtils.lerp(
-                                    targetCamComp.currentDistance,
-                                    targetCamComp.desiredDistance,
-                                    lerpFactor,
-                                );
-                            targetCamComp.currentDistance = Math.max(
-                                targetCamComp.minDistance,
-                                targetCamComp.currentDistance,
-                            ); // Clamp min distance
-
-                            // Calculate ideal camera position based on orbit angles and smoothed distance
-                            this.spherical.set(
-                                targetCamComp.currentDistance, // radius
-                                Math.PI / 2 - targetCamComp.orbitAngles.y, // phi (polar angle from Y+ axis)
-                                targetCamComp.orbitAngles.x, // theta (azimuthal angle around Y axis)
-                            );
-                            this.idealCameraOffset.setFromSpherical(
-                                this.spherical,
-                            );
-
-                            if (
-                                targetCamComp.mode ===
-                                CameraMode.THIRD_PERSON_ENTITY
-                            ) {
-                                // Rotate offset by entity's rotation *before* adding to position
-                                this.idealCameraOffset.applyQuaternion(
-                                    targetRotComp.value,
-                                );
-                            }
-
-                            this.idealCameraPosition
-                                .copy(this.cameraTargetPosition)
-                                .add(this.idealCameraOffset);
-
-                            // --- Camera Collision ---
-                            let finalCameraPosition = this.idealCameraPosition;
-                            if (this.worldOctree) {
-                                const rayDirection = new THREE.Vector3()
-                                    .subVectors(
-                                        this.idealCameraPosition,
-                                        this.targetLookAt,
-                                    )
-                                    .normalize();
-                                // Set up the raycaster originating from the lookAt point towards the ideal camera position
-                                this.raycaster.set(
-                                    this.targetLookAt,
-                                    rayDirection,
-                                );
-                                this.raycaster.far =
-                                    targetCamComp.currentDistance +
-                                    targetCamComp.collisionBuffer; // Check up to desired dist + buffer
-                                this.raycaster.near = 0.1;
-
-                                // CORRECT: Call the intersection method ON the Octree instance
-                                const intersects =
-                                    this.worldOctree.rayIntersect(
-                                        this.raycaster.ray,
-                                    );
-
-                                if (intersects) {
-                                    // Octree.rayIntersect returns a single intersection object or null
-                                    // Find closest intersection (it returns only the first/closest hit)
-                                    const closestHit = intersects;
-                                    // Move camera slightly in front of the collision point
-                                    const collisionDistance =
-                                        closestHit.distance -
-                                        targetCamComp.collisionBuffer;
-                                    finalCameraPosition = this.targetLookAt
-                                        .clone()
-                                        .addScaledVector(
-                                            rayDirection,
-                                            Math.max(
-                                                targetCamComp.minDistance,
-                                                Math.min(
-                                                    targetCamComp.currentDistance,
-                                                    collisionDistance,
-                                                ),
-                                            ),
-                                        );
-                                    // Update current distance based on collision, but allow lerping
-                                    targetCamComp.currentDistance = Math.min(
-                                        targetCamComp.currentDistance,
-                                        collisionDistance,
-                                    );
-                                } else {
-                                    // No collision, use ideal position
-                                    finalCameraPosition =
-                                        this.idealCameraPosition;
-                                    // Let currentDistance lerp towards desiredDistance naturally (already handled before this block)
-                                }
-                            }
-
-                            // Apply final position (smoothed optional)
-                            camera.position.lerp(
-                                finalCameraPosition,
-                                lerpFactor,
-                            ); // Smooth position changes
-                            // Always look at the target offset point
-                            camera.lookAt(this.targetLookAt);
-                            break;
+                case CameraMode.FIRST_PERSON:
+                    if (targetPos && targetRot) {
+                        const worldOffset = viewConfig.firstPersonOffset
+                            .clone()
+                            .applyQuaternion(targetRot);
+                        camera.position.copy(targetPos).add(worldOffset);
+                        camera.quaternion.copy(targetRot); // Look where entity looks
+                    } else {
+                        /* Handle missing target? */
                     }
-                    // Store viewport (unchanged)
-                    camera.userData.viewport = managedCam.viewport;
-                }
+                    break;
 
-                // --- Attach Listener to the *active* camera ---
-                // Simple approach: Attach to the 'main' camera if it exists and has a target
-                // More complex: Determine which camera is currently being rendered full-screen or primary split.
-                if (
-                    cameraId === 'main' &&
-                    managedCam.viewport.z > 0 &&
-                    managedCam.viewport.w > 0
-                ) {
-                    activeCamera = managedCam.camera;
-                }
+                case CameraMode.THIRD_PERSON_GLOBAL:
+                case CameraMode.THIRD_PERSON_ENTITY:
+                    if (targetPos && targetRot) {
+                        // Need target for 3rd person
+                        // Smooth distance
+                        const lerpFactor = 1.0 - Math.exp(-deltaTime * 10);
+                        viewConfig.currentDistance = THREE.MathUtils.lerp(
+                            viewConfig.currentDistance,
+                            viewConfig.thirdPersonDistance,
+                            lerpFactor,
+                        );
+                        viewConfig.currentDistance = Math.max(
+                            viewConfig.thirdPersonMinDistance,
+                            viewConfig.currentDistance,
+                        );
+
+                        // Calculate ideal position based on orbit angles (now stored in config)
+                        this.spherical.set(
+                            viewConfig.currentDistance,
+                            Math.PI / 2 - viewConfig.thirdPersonOrbitAngles.y,
+                            viewConfig.thirdPersonOrbitAngles.x,
+                        );
+                        this.idealCameraOffset.setFromSpherical(this.spherical);
+
+                        if (
+                            viewConfig.mode === CameraMode.THIRD_PERSON_ENTITY
+                        ) {
+                            this.idealCameraOffset.applyQuaternion(targetRot); // Apply entity rotation
+                        }
+
+                        this.idealCameraPosition
+                            .copy(targetPos)
+                            .add(this.idealCameraOffset);
+
+                        // Camera Collision (uses this.targetLookAt)
+                        let finalCameraPosition = this.performCameraCollision(
+                            viewConfig,
+                            this.idealCameraPosition,
+                            this.targetLookAt,
+                        );
+
+                        // Apply final position & lookAt
+                        camera.position.lerp(finalCameraPosition, lerpFactor);
+                        camera.lookAt(this.targetLookAt);
+                    } else {
+                        /* Handle missing target? */
+                    }
+                    break;
+            }
+
+            // Update listener position if this is the focused/active camera
+            if (activeView.id === this._focusedActiveViewId) {
+                this.updateAudioListener(camera);
             }
         });
+    } // End update
 
-        if (!activeCamera) {
-            const firstActive = Array.from(this.cameras.values()).find(
-                (mc) => mc.viewport.z > 0 && mc.viewport.w > 0,
+    private performCameraCollision(
+        config: ViewConfiguration,
+        idealPosition: THREE.Vector3,
+        lookAtPoint: THREE.Vector3,
+    ): THREE.Vector3 {
+        let finalPosition = idealPosition.clone();
+        if (this.collisionWorld) {
+            const rayDirection = new THREE.Vector3()
+                .subVectors(idealPosition, lookAtPoint)
+                .normalize();
+            this.raycaster.set(lookAtPoint, rayDirection);
+            this.raycaster.far =
+                config.currentDistance + config.thirdPersonCollisionBuffer;
+            this.raycaster.near = 0.1;
+
+            const hit = this.collisionWorld.rayIntersectFirst(
+                this.raycaster.ray,
             );
-            if (firstActive) {
-                activeCamera = firstActive.camera;
-            }
-        }
 
-        // If we found an active camera and the listener isn't already its child, add it.
-        // (Adding it repeatedly is harmless, Three.js handles it)
-        if (activeCamera) {
-            // Check if listener already attached to *a* camera to avoid adding multiple times to scene graph roots
-            if (!this.listener.parent) {
-                activeCamera.add(this.listener);
-                // console.log(`Attached AudioListener to camera: ${activeCamera.id}`); // Debug
-            } else if (this.listener.parent !== activeCamera) {
-                // If attached to a different camera, move it
-                this.listener.removeFromParent();
-                activeCamera.add(this.listener);
-                // console.log(`Moved AudioListener to camera: ${activeCamera.id}`); // Debug
+            if (hit) {
+                const collisionDistance =
+                    hit.distance - config.thirdPersonCollisionBuffer;
+                finalPosition = lookAtPoint
+                    .clone()
+                    .addScaledVector(
+                        rayDirection,
+                        Math.max(
+                            config.thirdPersonMinDistance,
+                            collisionDistance,
+                        ),
+                    );
+                // Update config's current distance to reflect collision
+                config.currentDistance = Math.min(
+                    config.currentDistance,
+                    collisionDistance,
+                );
             }
-        } else if (this.listener.parent) {
-            // No active camera found, remove listener from previous parent? Or leave it?
-            // console.warn("No active camera found to attach AudioListener.");
-            // this.listener.removeFromParent(); // Optional
         }
+        return finalPosition;
     }
 
-    // --- Functions to manage split screen ---
-    setSingleScreen(cameraId: string = 'main'): void {
-        const mainCam = this.cameras.get(cameraId);
-        if (mainCam) {
-            mainCam.viewport.set(0, 0, 1, 1);
-            // Disable other cameras' viewports (set width/height to 0)
-            this.cameras.forEach((cam, id) => {
-                if (id !== cameraId) {
-                    cam.viewport.set(0, 0, 0, 0); // Effectively hide it
-                }
-                this.updateCameraProjection(cam.camera);
-            });
+    private updateAudioListener(activeCamera: THREE.Camera): void {
+        if (!this.listener.parent) {
+            activeCamera.add(this.listener);
+        } else if (this.listener.parent !== activeCamera) {
+            this.listener.removeFromParent();
+            activeCamera.add(this.listener);
         }
+        // Listener position/orientation is now automatically updated by being a child of the active camera
     }
 
-    setTwoPlayerSplitScreen(
-        camId1: string = 'main',
-        camId2: string = 'npc1',
-    ): void {
-        const cam1 = this.cameras.get(camId1);
-        const cam2 = this.cameras.get(camId2);
+    destroy() {
+        // Clean up event listener
+        appEventManager.off(AppAction.LAYOUT_UPDATED, this.handleLayoutUpdated);
+        this.clear();
+    }
 
-        if (cam1) {
-            cam1.viewport.set(0, 0, 0.5, 1);
-            this.updateCameraProjection(cam1.camera);
-        } // Left half
-        if (cam2) {
-            cam2.viewport.set(0.5, 0, 0.5, 1);
-            this.updateCameraProjection(cam2.camera);
-        } // Right half
-
-        // Disable others
-        this.cameras.forEach((cam, id) => {
-            if (id !== camId1 && id !== camId2) {
-                cam.viewport.set(0, 0, 0, 0);
-                this.updateCameraProjection(cam.camera);
-            }
+    /**
+     * clear down views, cameras, and active views.
+     */
+    clear(): void {
+        console.log('CameraSystem: Removing stuff.');
+        [...this._activeViews.keys()].reverse().forEach((avId) => {
+            console.log(`destroying active view ${avId}`);
+            this.destroyActiveView(avId);
         });
+
+        [...this.viewConfigurations.keys()]
+            .reverse()
+            .forEach((viewConfigId) => {
+                this.destroyViewConfiguration(viewConfigId);
+            });
+
+        [...this.cameraInstances.keys()].reverse().forEach((cameraId) => {
+            console.log(`destroying camera_id ${cameraId}`);
+            this.destroyCameraInstance(cameraId);
+        });
+        this._focusedActiveViewId = null;
+        this.setCollisionWorld(null); // Clear collision world reference
+        console.log(
+            'CameraSystem: Cleared all camera instances and view configurations.',
+        );
     }
 }

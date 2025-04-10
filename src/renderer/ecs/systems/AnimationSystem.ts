@@ -3,12 +3,12 @@ import { System } from '@ecs/System';
 import { World } from '@ecs/World';
 import {
     AnimatedModelComponent,
-    VelocityComponent,
     ColliderComponent,
-    InputControllableComponent, MovementStateComponent,
+    InputControllableComponent,
+    MovementStateComponent,
+    VelocityComponent,
 } from '@ecs/components';
 import * as THREE from 'three';
-import { DEBUG_OBJ2 } from '@renderer/utils/debug';
 
 export class AnimationSystem extends System {
     constructor(world: World) {
@@ -31,13 +31,21 @@ export class AnimationSystem extends System {
                 entity,
                 ColliderComponent,
             );
-            const stateComp: MovementStateComponent = this.world.getComponent(entity, MovementStateComponent)!;
+            const stateComp: MovementStateComponent = this.world.getComponent(
+                entity,
+                MovementStateComponent,
+            )!;
             // Get input state IF the entity has it (NPCs might not)
             const inputComp = this.world.getComponent(
                 entity,
                 InputControllableComponent,
             );
-            if (!animComp || !colliderComp || !velComp ||!stateComp || !inputComp) continue;
+            if (!colliderComp || !stateComp) {
+                console.error(
+                    `missing collider ${colliderComp} or stateComp ${stateComp} or inputComp ${inputComp} for entity `,
+                );
+                continue;
+            }
 
             // --- Determine Target Animation State ---
             let targetActionName: string | null = null;
@@ -55,24 +63,53 @@ export class AnimationSystem extends System {
                     inputComp.actions.left ||
                     inputComp.actions.right);
 
-            switch(stateComp.state) {
+            switch (stateComp.state) {
                 case 'grounded':
-                    if (isMovingByInput) { // Use input check from before
-                        if (inputComp?.actions.run && horizontalSpeedSq > 0.1) targetActionName = this.findBestMatch(animComp.actions, ['Run', 'Walk']);
-                        else targetActionName = this.findBestMatch(animComp.actions, ['Walk', 'Run']);
+                    if (isMovingByInput) {
+                        // Use input check from before
+                        if (inputComp?.actions.run && horizontalSpeedSq > 0.1)
+                            targetActionName = this.findBestMatch(
+                                animComp.actions,
+                                ['Run', 'Walk'],
+                            );
+                        else
+                            targetActionName = this.findBestMatch(
+                                animComp.actions,
+                                ['Walk', 'Run'],
+                            );
                     } else {
-                        targetActionName = this.findBestMatch(animComp.actions, ['Idle']);
+                        targetActionName = this.findBestMatch(
+                            animComp.actions,
+                            ['Idle'],
+                        );
                     }
                     break;
                 case 'jumping':
-                    targetActionName = this.findBestMatch(animComp.actions, ['Jump', 'Fall', 'Run']); // Or specific jump anim
+                    targetActionName = this.findBestMatch(animComp.actions, [
+                        'Jump',
+                        'Fall',
+                        'Run',
+                    ]); // Or specific jump anim
                     break;
                 case 'falling':
-                    targetActionName = this.findBestMatch(animComp.actions, ['Fall', 'Jump', 'Run']); // Or specific fall anim
+                    targetActionName = this.findBestMatch(animComp.actions, [
+                        'Fall',
+                        'Jump',
+                        'Run',
+                    ]); // Or specific fall anim
                     break;
                 case 'flying':
-                    if (horizontalSpeedSq > 0.1) targetActionName = this.findBestMatch(animComp.actions, ['FlyForward', 'Run']); // Need Fly anims
-                    else targetActionName = this.findBestMatch(animComp.actions, ['FlyIdle', 'Idle']); // Need Fly anims
+                    if (horizontalSpeedSq > 0.1)
+                        targetActionName = this.findBestMatch(
+                            animComp.actions,
+                            ['FlyForward', 'Run'],
+                        );
+                    // Need Fly anims
+                    else
+                        targetActionName = this.findBestMatch(
+                            animComp.actions,
+                            ['FlyIdle', 'Idle'],
+                        ); // Need Fly anims
                     break;
             }
 

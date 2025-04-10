@@ -1,20 +1,33 @@
 // src/main/dbusService.ts
 import * as dbus from 'dbus-next';
+import { DBusError } from 'dbus-next';
 import { AppAction } from '@shared/core';
 import { ipcMain } from 'electron';
+import { DBUS_MAPPINGS } from '@main/dbus_mappings';
+import { DBUS } from '@shared/core/dbusConstants';
 
 const SERVICE_NAME = 'org.three-ecs-rpg.App';
 const CONTROL_OBJECT_PATH = '/org/three_ecs_rpg/Control'; // Use underscores for paths usually
 const CONTROL_IFACE_NAME = 'org.threeecsrpg.Control';
 
-//let controlInterface: dbus.interface.Interface;
-
 const { ACCESS_READ, Interface, method, property } = dbus.interface;
 
 let mainWindowWebContents: Electron.WebContents | null = null; // To send messages to renderer
 
+// Define more specific payload types
+type ActionPayload = Record<string, unknown>;
+
+// Define response type for IPC communication
+interface IpcResponse {
+    data?: unknown;
+    error?: string;
+}
+
 // Function to forward calls to the renderer via IPC
-function forwardToRenderer(action: AppAction | string, payload?: any) {
+function forwardToRenderer(
+    action: AppAction | string,
+    payload?: ActionPayload,
+) {
     if (mainWindowWebContents) {
         console.log(`D-Bus: Forwarding action "${action}" to renderer.`);
         mainWindowWebContents.send('dbus-action', { action, payload });
@@ -25,112 +38,174 @@ function forwardToRenderer(action: AppAction | string, payload?: any) {
     }
 }
 
-function invokeRenderer(channel: string, args?: any): Promise<any> {
+function invokeRenderer(
+    channel: string,
+    args?: Record<string, unknown>,
+): Promise<unknown> {
     if (!mainWindowWebContents) {
         console.error(
             'D-Bus Error: Cannot invoke renderer, mainWindowWebContents not set.',
         );
         return Promise.reject(new Error('Renderer not available'));
     }
-
     return new Promise((resolve, reject) => {
-        // Create a unique request ID
         const requestId = Date.now().toString() + Math.random().toString();
-
-        // Set up a one-time listener for this specific request
+        const requestChannel = `${channel}:request`;
         const responseChannel = `${channel}:response:${requestId}`;
-        ipcMain.once(responseChannel, (event, response) => {
-            if (response.error) {
-                console.error(
-                    `D-Bus->Main: Error response from renderer:`,
-                    response.error,
-                );
-                reject(new Error(response.error));
-            } else {
-                console.log(
-                    `D-Bus<-Main: Received result from renderer for request ${requestId}`,
-                );
-                resolve(response.data);
-            }
-        });
 
-        // Send the request with the requestId so the renderer knows where to respond
-        console.log(
-            `D-Bus->Main: Invoking renderer channel "${channel}" with request ID ${requestId}`,
-        );
+        const listener = (
+            event: Electron.IpcMainEvent,
+            response: IpcResponse,
+        ) => {
+            if (response.error) reject(new Error(response.error));
+            else resolve(response.data);
+        };
+        ipcMain.once(responseChannel, listener);
+
+        // Timeout logic (good addition)
+        const timeout = setTimeout(() => {
+            ipcMain.removeListener(responseChannel, listener); // Use removeListener
+            reject(new Error(`Request to ${channel} timed out`));
+        }, 5000);
+
+        // Send request
         try {
-            // @ts-ignore
-            mainWindowWebContents.send(`${channel}:request`, {
-                requestId,
-                args,
-            });
+            mainWindowWebContents!.send(requestChannel, { requestId, args });
         } catch (error) {
-            ipcMain.removeAllListeners(responseChannel);
+            clearTimeout(timeout);
+            ipcMain.removeListener(responseChannel, listener);
             reject(error);
         }
-
-        // Optional: Add a timeout
-        setTimeout(() => {
-            // Check if listener still exists (response not received)
-            if (ipcMain.listenerCount(responseChannel) > 0) {
-                ipcMain.removeAllListeners(responseChannel);
-                reject(
-                    new Error(`Request to ${channel} timed out after 5000ms`),
-                );
-            }
-        }, 5000);
     });
+}
+
+function sendAppControl(
+    action: AppAction | string,
+    payload?: ActionPayload,
+): void {
+    if (mainWindowWebContents) {
+        mainWindowWebContents.send('app:control', { action, payload });
+    } else {
+        throw new DBusError(
+            DBUS.CONTROL_IFACE_NAME + '.Error',
+            'Main window web contents not available',
+        );
+    }
+    // @TODO throw here if send fails due to renderer not being available
 }
 
 export async function setupDbusService(webContents: Electron.WebContents) {
     mainWindowWebContents = webContents;
     try {
-        const bus = dbus.sessionBus(); // Or systemBus() if appropriate
-
-        // Request the service name
+        const bus = dbus.sessionBus();
         await bus.requestName(SERVICE_NAME, 0);
+
         console.log(`D-Bus: Service name "${SERVICE_NAME}" acquired.`);
 
         // Define the interface
-        class ControlInterface extends dbus.interface.Interface {
+        class ECSQueryInterface extends dbus.interface.Interface {
             // --- Methods ---
-            async ListEntities(): Promise<string> {
-                const entities = await invokeRenderer('ecs:listEntities');
-                // Convert [{id, name}] to [[id, name]] for 'a(is)' signature if needed
-                // return entities.map((e: { id: number, name: string }) => [e.id, e.name]);
-                // Or keep as a{is} -> array of dicts
-                return JSON.stringify(entities);
+            async ListEntities(): Promise<Array<[number, string]>> {
+                const entities = (await invokeRenderer('ecs:listEntities')) as {
+                    id: number;
+                    name: string;
+                }[];
+                // Convert result to expected D-Bus type
+                // Example: return entities.map((e: { id: number; name: string }) => [e.id, e.name]); // For a(is)
+                return entities.map((e: { id: number; name: string }) => [
+                    e.id,
+                    e.name,
+                ]);
             }
 
             async ListSomething(): Promise<string> {
                 return Promise.resolve(JSON.stringify(['foo', 'bar']));
             }
 
-            async ListComponents(entityId: number): Promise<string> {
-                const components = await invokeRenderer('ecs:listComponents', {
+            async ListComponents(entityId: number): Promise<string[]> {
+                return (await invokeRenderer('ecs:listComponents', {
                     entityId,
-                });
-                return JSON.stringify(components);
+                })) as string[];
             }
 
             async GetComponentData(
                 entityId: number,
                 componentName: string,
             ): Promise<string> {
-                const data = await invokeRenderer('ecs:getComponentData', {
+                const data = (await invokeRenderer('ecs:getComponentData', {
                     entityId,
                     componentName,
-                });
-                return data ?? 'Component not found or failed to serialize'; // Return string
+                })) as string | null;
+                return data ?? 'Component not found or failed to serialize';
             }
+
+            async SetComponentData(
+                entityId: number,
+                componentName: string,
+                value: string,
+            ): Promise<string> {
+                console.log(
+                    `D-Bus: SetComponentValue(${entityId}, ${componentName}, ${value})`,
+                );
+                const parsedValue = JSON.parse(value);
+                console.log(`Parsed value:`, parsedValue);
+                const data = (await invokeRenderer('ecs:setComponentValue', {
+                    entityId,
+                    componentName,
+                    value,
+                })) as string | null;
+                return (
+                    data ??
+                    'Component not found or failed to serialize response'
+                ); // Return string
+            }
+
+            // System Methods
+            async ListSystems(): Promise<Array<[string, string]>> {
+                const systems = (await invokeRenderer(
+                    'ecs:listSystems',
+                )) as Array<[string, string]> | null;
+                // preserving to do something useful later
+                return systems
+                    ? systems.map((e: [name: string, data: string]) => [
+                          e[0],
+                          e[1],
+                      ])
+                    : [];
+            }
+
             // --- Control Methods (keep separate interface?) ---
+            Reload() {
+                // Notify renderer that reload is about to happen
+                sendAppControl(AppAction.RELOAD);
+                // Small delay to allow renderer to receive notification
+                setTimeout(() => {
+                    if (mainWindowWebContents) {
+                        mainWindowWebContents.reload();
+                    }
+                }, 100);
+            }
+
             PauseGame() {
-                invokeRenderer('app:control', { action: 'PAUSE_GAME' });
+                sendAppControl(AppAction.PAUSE_GAME);
             }
+
+            QuitGame() {
+                sendAppControl(AppAction.QUIT);
+            }
+
             ToggleDebugHUD() {
-                invokeRenderer('app:control', { action: 'TOGGLE_DEBUG_HUD' });
+                sendAppControl(AppAction.TOGGLE_DEBUG_HUD);
             }
-            // ... other control actions ...
+
+            SetCameraThirdPersonGlobal() {
+                sendAppControl(AppAction.SET_CAMERA_THIRD_PERSON_GLOBAL);
+            }
+
+            ToggleDebugVisuals() {
+                sendAppControl(AppAction.TOGGLE_DEBUG_VISUALS);
+            }
+
             SetPhysicsValue(key: string, valueVariant: dbus.Variant) {
                 const value = valueVariant.value; // Extract value from variant
                 console.log(
@@ -139,31 +214,48 @@ export async function setupDbusService(webContents: Electron.WebContents) {
                 invokeRenderer('app:setConfig', { key, value });
             }
 
-            // Add methods for other AppActions or config settings
-            // ...
+            // Add Control Method for Time Scale
+            SetTimeScale(scale: number) {
+                // D-Bus 'd' maps to number
+                console.log(`D-Bus: Received SetTimeScale(${scale})`);
+                // Use send, as it's a one-way command affecting config
+                mainWindowWebContents!.send('app:setConfig', {
+                    key: 'simulation.timeScale',
+                    value: scale,
+                });
+            }
+
+            // ViewPort Methods
+            async GetViewportLayout(): Promise<string> {
+                return await invokeRenderer('ecs:getViewportLayout') as string;
+            }
+
+            // Generic System Method
+            async GetSystemData(systemName: string): Promise<string> {
+                const data = await invokeRenderer('ecs:getSystemData', {
+                    systemName,
+                }) as string;
+                return data ?? 'Component not found or failed to serialize'; // Return string
+            }
+
+            async GetLayout(): Promise<string> {
+                const state = await invokeRenderer('layout:getState');
+                return JSON.stringify(state);
+            }
+
+            async SetLayout(layoutJson: string): Promise<boolean> {
+                return await invokeRenderer('layout:setState', { layoutJson }) as boolean;
+            }
         }
 
         // Decorate methods for D-Bus introspection
-        ControlInterface.configureMembers({
-            methods: {
-                ListEntities: { inSignature: '', outSignature: 's' }, // Array of Dicts {Int32: String}
-                ListSomething: { inSignature: '', outSignature: 's' },
-                ListComponents: { inSignature: 'i', outSignature: 's' }, // blob of json string
-                GetComponentData: { inSignature: 'is', outSignature: 's' }, // Int32, String -> String (JSON)
-                // Control methods
-                PauseGame: { inSignature: '', outSignature: '' },
-                ToggleDebugHUD: { inSignature: '', outSignature: '' },
-                SetPhysicsValue: { inSignature: 'sv', outSignature: '' }, // String, Variant -> None
-            },
-            // properties: { ... }, // Can also define properties
-            // signals: { ... }, // Can define signals
-        });
+        ECSQueryInterface.configureMembers(DBUS_MAPPINGS);
 
-        let controlInterface;
-        controlInterface = new ControlInterface(CONTROL_IFACE_NAME);
+        let ecsInterface;
+        ecsInterface = new ECSQueryInterface(CONTROL_IFACE_NAME);
 
         // Export the object with the interface
-        await bus.export(CONTROL_OBJECT_PATH, controlInterface);
+        bus.export(CONTROL_OBJECT_PATH, ecsInterface);
         console.log(
             `D-Bus: Object exported at "${CONTROL_OBJECT_PATH}" with interface "${CONTROL_IFACE_NAME}".`,
         );

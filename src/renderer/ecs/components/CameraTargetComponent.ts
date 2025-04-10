@@ -22,7 +22,7 @@ export enum CameraMode {
  */
 export class CameraTargetComponent extends Component {
     constructor(
-        public cameraId: string = 'main', // Identifier for which camera follows
+        public cameraId: string = 'main', // Identifier for which camera follows - TODO don't think this is needed
         public offset = new THREE.Vector3(0, 1.6, 0), // E.g., eye level offset
         // --- First Person Settings ---
         public firstPersonOffset = new THREE.Vector3(0, 0.8, 0), // E.g., eye level offset

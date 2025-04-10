@@ -3,14 +3,18 @@ import { System } from '@ecs/System';
 import { World } from '@ecs/World';
 import {
     ColliderComponent,
+    ForceAccumulatorComponent,
     GravityAffectedComponent,
+    MassComponent,
+    NeedsUpdateComponent,
     PositionComponent,
     VelocityComponent,
 } from '@ecs/components';
-import { NeedsUpdateComponent } from '@ecs/components';
 import { PhysicsConfigManager } from '@core/PhysicsConfigManager';
-import { MassComponent, ForceAccumulatorComponent /* ... other comps ... */ } from '@ecs/components';
-import * as THREE from 'three';
+import { statsManager } from '@renderer/utils/CustomStats';
+import { PhysicsLogic } from '@renderer/logic/PhysicsLogic';
+import { Entity } from '@ecs/Entity';
+import { LoggingService } from './LoggingService';
 
 export class PhysicsSystem extends System {
     // Store reference to manager
@@ -22,18 +26,23 @@ export class PhysicsSystem extends System {
     }
 
     update(deltaTime: number): void {
-        const entities = this.world.queryEntities([
-            PositionComponent, VelocityComponent, MassComponent, ForceAccumulatorComponent
+        const entities: Entity[] = this.world.queryEntities([
+            PositionComponent,
+            VelocityComponent,
+            MassComponent,
+            ForceAccumulatorComponent,
         ]);
         const globalDamping = this.physicsConfig.getGlobalDamping();
         const baseGravity = this.physicsConfig.getBaseGravity();
-
 
         for (const entity of entities) {
             const pos = this.world.getComponent(entity, PositionComponent)!;
             const vel = this.world.getComponent(entity, VelocityComponent)!;
             const massComp = this.world.getComponent(entity, MassComponent)!;
-            const forceComp = this.world.getComponent(entity, ForceAccumulatorComponent)!;
+            const forceComp = this.world.getComponent(
+                entity,
+                ForceAccumulatorComponent,
+            )!;
             const collider = this.world.getComponent(entity, ColliderComponent); // Optional
 
             const gravityComp = this.world.getComponent(
@@ -41,42 +50,89 @@ export class PhysicsSystem extends System {
                 GravityAffectedComponent,
             );
 
-            // --- Apply Ground Friction (Direct Velocity Modification - Simpler) ---
-            let groundFriction = 0.0; // Assume no friction initially
+            // --- Apply Ground Friction ---
             if (collider?.onGround && collider.groundNormal) {
-                // TODO: Get friction coefficient based on groundNormal or material later
-                // For now, use a constant friction value when grounded
-                groundFriction = 5.0 * deltaTime; // Tune this value (higher = more friction)
-                // Apply friction against horizontal velocity
-                const horizontalVel = new THREE.Vector3(vel.value.x, 0, vel.value.z);
-                const frictionMagnitude = Math.min(horizontalVel.length() / deltaTime, groundFriction * massComp.mass * 9.81); // Simplified friction limit approximation
-                const frictionForce = horizontalVel.clone().normalize().multiplyScalar(-frictionMagnitude);
-                forceComp.force.add(frictionForce); // Add friction to accumulator for this frame
+                forceComp.force.add(
+                    PhysicsLogic.calcGroundFriction(
+                        vel.value,
+                        massComp.mass,
+                        deltaTime,
+                    ),
+                );
             }
 
             // --- Integration (using accumulated forces) ---
             if (massComp.mass > 0) {
-                // 1. Calculate acceleration: a = F / m
-                const acceleration = forceComp.force.clone().multiplyScalar(1 / massComp.mass);
-
-                // 2. Update velocity: v += a * dt
-                vel.value.addScaledVector(acceleration, deltaTime);
-
-                // 3. Apply Air Damping (non-ground velocity damping)
-                // Make damping velocity-dependent for more realism (e.g., linear or quadratic)
-                const dampingFactor = 1.0 - (globalDamping * deltaTime); // Simple linear damping
-                vel.value.multiplyScalar(dampingFactor);
+                PhysicsLogic.calcVelocityFromForce(
+                    forceComp.force,
+                    massComp.mass,
+                    deltaTime,
+                    globalDamping,
+                    vel.value,
+                );
+                if (entity == 0) {
+                    // this.velocityStats.addValue(Math.round(vel.value.y));
+                    if (Math.random() < 0.05) {
+                        // console.dir(statsManager.constructor.name);
+                        // console.log(typeof statsManager);
+                        // console.dir(statsManager);
+                        //console.log(`sending vel ${Formatting.fVec3(vel.value)}`);
+                        // statsManager.addValue(
+                        //     'velocity.x',
+                        //     vel.value.x,
+                        // );
+                        LoggingService.getInstance().logVectorUpdate({
+                            entityId: entity,
+                            type: 'velocity',
+                            x: vel.value.x,
+                            y: vel.value.y,
+                            z: vel.value.z,
+                            timestamp: Date.now(),
+                        });
+                        statsManager.addValue('velocity.y', vel.value.y);
+                        // statsManager.addValue(
+                        //     'velocity.z',
+                        //     vel.value.z,
+                        // );
+                    }
+                }
             }
+
             // 4. Update position: p += v * dt
             pos.value.addScaledVector(vel.value, deltaTime);
-
+            if (entity == 0 && Math.random() < 0.05) {
+                // console.dir(statsManager.constructor.name);
+                // console.log(typeof statsManager);
+                // console.dir(statsManager);
+                // console.log(`sending pos ${Formatting.fVec3(pos.value)}`);
+                LoggingService.getInstance().logVectorUpdate({
+                    entityId: entity,
+                    type: 'velocity',
+                    x: vel.value.x,
+                    y: vel.value.y,
+                    z: vel.value.z,
+                    timestamp: Date.now(),
+                });
+                // statsManager.addValue(
+                //     'velocity.x',
+                //     vel.value.x,
+                // );
+                // statsManager.addValue(
+                //     'velocity.y',
+                //     vel.value.y,
+                // );
+                // statsManager.addValue(
+                //     'velocity.z',
+                //     vel.value.z,
+                // );
+            }
 
             // 5. Clear force accumulator for next frame
             forceComp.force.set(0, 0, 0);
 
-
             // Mark for render update
             this.world.addComponent(entity, new NeedsUpdateComponent());
         }
+        // statsManager.update();
     }
 }

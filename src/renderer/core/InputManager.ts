@@ -1,14 +1,19 @@
 // src/renderer/core/InputManager.ts
-import { InputAction } from './InputActions';
-import { AppAction } from '../../shared/core/AppActions'; // Import AppAction
-import { AppEventManager } from './AppEventManager'; // Import AppEventManager
+import { InputAction } from '@shared/core/InputActions';
+import { AppAction } from '@shared/core';
+import { AppEventManager } from './AppEventManager';
+import { serializeForConsole } from '@renderer/utils/formatting';
+import { Serializer } from '@shared/serialization/Serializer';
+import { ActionStates, KeyMappingConfig } from '@core/types';
 
-// Type for the loaded configuration (can map to either enum)
-type KeyMappingConfig = Record<string, InputAction | AppAction>;
 
-// Type for the current state of InputActions
-type ActionStates = Map<InputAction, boolean>;
 
+/**
+ * This is the InputManager class that handles input events and maps them to actions.
+ * It uses a configuration file to load key mappings and manages the state of input actions. It is eetting flags for the various inputs that it is managing.
+ * It also handles mouse movement and pointer lock state.
+ *
+ */
 export class InputManager {
     private keyToActionMap: Map<string, InputAction> = new Map();
     private keyToAppActionMap: Map<string, AppAction> = new Map(); // Separate map for app actions
@@ -111,11 +116,14 @@ export class InputManager {
     }
 
     // --- Event Handlers ---
-    private handleKeyDown = (event: KeyboardEvent): void => {
+    private handleKeyDown: (event: KeyboardEvent) => void = (event: KeyboardEvent): void => {
         if (event.repeat) return; // Ignore key repeats for triggering events
 
         const inputAction = this.keyToActionMap.get(event.code);
         const appAction = this.keyToAppActionMap.get(event.code);
+
+        console.log(`Key pressed: ${event.code}, Action: ${inputAction || appAction}`); // Debug
+        console.log(serializeForConsole(Serializer.serialize(event)));
 
         if (inputAction) {
             this.actionStates.set(inputAction, true);
@@ -137,7 +145,9 @@ export class InputManager {
         this.pointerLocked = document.pointerLockElement === this.targetElement;
         if (!this.pointerLocked) {
             // Optional: Reset movement states when pointer lock is lost?
-            // this.actionStates.forEach((_, key) => this.actionStates.set(key, false));
+            this.actionStates.forEach((_, key) => this.actionStates.set(key, false));
+            this.unconsumedMouseDelta.x = 0;
+            this.unconsumedMouseDelta.y = 0;
         }
     };
 

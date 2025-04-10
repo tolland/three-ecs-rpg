@@ -1,22 +1,21 @@
 // src/renderer/core/GameLoop.ts
 import { World } from '../ecs';
 import { Clock } from 'three';
-import { DEBUG_OBJ2 } from '@renderer/utils/debug';
-
-const MAX_DELTA_TIME = 1 / 30; // Clamp delta time to max 30 FPS equivalent
+import { simulationConfigManager } from './SimulationConfigManager'; // Import config
 
 export class GameLoop {
     private clock = new Clock();
     private animationFrameId: number | null = null;
-    private _isPaused = false; // Paused state
-    private debugSlowMotion = false;
+    private _isPaused = false;
+
+    private debugSlowMotion = true;
     private STEPS_PER_FRAME: number = 2;
+    private SLOW_DOWN_DELAY: number = 100;
 
     constructor(
         private world: World,
         private updateCallback?: () => void,
-    ) {
-    }
+    ) {}
 
     start(): void {
         if (this.animationFrameId === null) {
@@ -52,29 +51,24 @@ export class GameLoop {
     }
 
     private tick = (): void => {
-        // Use arrow function to preserve 'this'
-        // let deltaTime = this.clock.getDelta();
+        let actualDeltaTime = this.clock.getDelta();
+        const timeScale = simulationConfigManager.getTimeScale();
+        const maxDeltaTime = simulationConfigManager.getMaxDeltaTime();
 
-        let deltaTime = this.debugSlowMotion ?
-            this.clock.getDelta() / this.STEPS_PER_FRAME : this.clock.getDelta();
+        let effectiveDeltaTime = actualDeltaTime * timeScale;
 
-        // --- Clamp Delta Time ---
-        if (deltaTime > MAX_DELTA_TIME) {
-            console.warn(
-                `Delta time ${deltaTime.toFixed(4)}s too high, clamping to ${MAX_DELTA_TIME.toFixed(4)}s`,
-            );
-            deltaTime = MAX_DELTA_TIME;
+        // Clamp the *effective* delta time
+        if (effectiveDeltaTime > maxDeltaTime) {
+            // console.warn(`Effective delta time ${effectiveDeltaTime.toFixed(4)}s too high (max ${maxDeltaTime.toFixed(4)}s), clamping.`);
+            effectiveDeltaTime = maxDeltaTime;
         }
 
-        // Only update world if not paused
         if (!this._isPaused) {
-            this.world.update(deltaTime);
+            // Use scaled and clamped delta
+            this.world.update(effectiveDeltaTime);
         } else {
-            // Optionally update specific non-gameplay systems even when paused
-            // e.g., world.updateSystem(RenderSystem, 0); // Or pass 0 delta
-            this.world.update(0); // Simplest: still call update, but with 0 delta.
-            // Systems need to handle deltaTime=0 appropriately.
-            // RenderSystem should still run.
+            // deltaTime 0 seems to cause problems for audio
+            this.world.update(0.000001);
         }
 
         // Optional additional update logic (e.g., UI updates)
@@ -82,18 +76,6 @@ export class GameLoop {
             this.updateCallback();
         }
 
-        // Request next frame
-        if (this.debugSlowMotion) {
-            setTimeout(() => {
-                this.animationFrameId = this.doRequestAnimationFrame(this.tick);
-            }, 50);
-        } else {
-            this.animationFrameId = this.doRequestAnimationFrame(this.tick);
-        }
+        this.animationFrameId = requestAnimationFrame(this.tick);
     };
-
-    private doRequestAnimationFrame(callback: FrameRequestCallback): number {
-        DEBUG_OBJ2.updateId = DEBUG_OBJ2.updateId + 1;
-        return requestAnimationFrame(this.tick);
-    }
 }

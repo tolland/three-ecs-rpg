@@ -2,11 +2,9 @@
 import { System } from '@ecs/System';
 import { World } from '@ecs/World';
 import {
+    AttachmentTargetComponent,
     AttachToComponent,
-    RenderableComponent, // Child must be renderable (or have the object to attach)
-    AttachmentTargetComponent, // Parent must be marked as a target
-    PositionComponent,
-    RotationComponent, // Needed to find the parent's Renderable
+    RenderableComponent,
 } from '@ecs/components';
 import * as THREE from 'three';
 

@@ -17,7 +17,5 @@ export class MarkerSystem extends System {
         this.debugVisualsGroup.visible = this.isEnabled; // Set initial visibility
     }
 
-    update(deltaTime: number): void {
-    }
-
+    update(deltaTime: number): void {}
 }

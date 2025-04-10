@@ -1,7 +1,21 @@
 // src/main/main.ts
 import { app, BrowserWindow, screen } from 'electron';
 import path from 'path';
-import { setupDbusService } from './dbusService'; // Import
+import { setupDbusService, teardownDbusService } from './dbusService';
+import log from 'electron-log';
+import { rendererAPI } from '@main/rendererAPI';
+import { AppAction } from '@shared/core';
+import { createApplicationMenu } from '@main/app_menu';
+import { Serializer } from '@shared/serialization/Serializer';
+
+log.transports.file.level = 'debug';
+log.info('Application starting...');
+
+// Custom extension ID for Three.js DevTools
+const THREEJS_DEVTOOLS = 'jechbjkglifdaldbdbigibihfaclnkbo';
+
+// Replace console.log with log
+// log.error('Error:', "orijgoerjgr");
 
 // Optional: Disable hardware acceleration if needed
 // app.disableHardwareAcceleration();
@@ -31,7 +45,9 @@ if (!gotTheLock) {
     });
 }
 
-console.log(`App is running in ${app.isPackaged ? 'production' : 'development'} mode. process.env.NODE_ENV: ${process.env.NODE_ENV}`);
+console.log(
+    `App is running in ${app.isPackaged ? 'production' : 'development'} mode. process.env.NODE_ENV: ${process.env.NODE_ENV}`,
+);
 
 // Enable hot reload for development
 // @TODO this is not working properly
@@ -67,12 +83,14 @@ function createWindow() {
             nodeIntegration: false,
             devTools: !app.isPackaged,
         },
+        title: 'Three.js ECS RPG',
     });
 
     // --- Intercept Ctrl+W ---
     mainWindow.webContents.on('before-input-event', (event, input) => {
         // Check for Ctrl+W specifically (or Cmd+W on macOS)
         // input.meta is Cmd on macOS, input.control is Ctrl on Win/Linux
+
         const isCtrlW =
             (input.control || input.meta) &&
             !input.alt &&
@@ -84,6 +102,11 @@ function createWindow() {
                 'Main Process: Ctrl+W intercepted, preventing default.',
             );
             event.preventDefault(); // Prevent closing the window or other default actions
+        }
+
+        if (input.key.toLowerCase() === 'tab') {
+            console.log('Main Process: Tab intercepted, preventing default.');
+            event.preventDefault(); // Prevent reloading the window
         }
     });
     // --- End Intercept ---
@@ -110,32 +133,97 @@ function createWindow() {
         // teardownDbusService(); // May need async handling on quit
     });
 
-    // Optional: Clear mainWindow when closed to prevent issues if accessed later
-    mainWindow.on('closed', () => {
-        mainWindow = null;
-    });
+    // setup listener for IPC messages from renderer
+    rendererAPI();
+
+    // Create application menu
+    createApplicationMenu(mainWindow);
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+    // try {
+    //     const name = await installExtension(THREEJS_DEVTOOLS);
+    //     console.log(`Added Extension: ${name}`);
+    // } catch (err) {
+    //     console.log('An error occurred: ', err);
+    // }
+
+    // const extensionPath = path.join(__dirname, '../renderer/assets/extensions/jechbjkglifdaldbdbigibihfaclnkbo');
+    //
+    // // Load the extension with options to ignore certain permissions
+    // await session.defaultSession.loadExtension(extensionPath, {
+    //     allowFileAccess: true,
+    //     // This is where you can modify the manifest before loading
+    //     // This is optional and might not be necessary for all Electron versions
+    // });
+
     createWindow();
 
     app.on('activate', function () {
+        console.log(`Activating app...`);
         // On macOS it's common to re-create a window in the app when the
         // dock icon is clicked and there are no other windows open.
         if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });
+
+    if (mainWindow) {
+        mainWindow.webContents.openDevTools();
+
+        // In main process
+        mainWindow.webContents.sendInputEvent({
+            type: 'mouseDown',
+            x: 100,
+            y: 100,
+            button: 'left',
+            clickCount: 1,
+        });
+        mainWindow.webContents.sendInputEvent({
+            type: 'mouseUp',
+            x: 100,
+            y: 100,
+            button: 'left',
+            clickCount: 1,
+        });
+    }
+
+    if (!mainWindow) {
+        console.error('Main window is not defined after creation.');
+        return;
+    }
+});
+
+// listen to lifecycle events
+app.on('before-quit', (event) => {
+    event.preventDefault(); // Temporarily prevent quitting
+
+    console.log('Application is about to quit. Cleaning up...');
+
+    if (mainWindow) {
+        // Send a message to renderer to confirm quitting
+        mainWindow.webContents.send('app:control', {
+            action: AppAction.QUITTING,
+        });
+    } else {
+        console.error('Main window is not defined during before-quit event.');
+    }
+
+    // // Wait for renderer to respond that it's ready to quit
+    // ipcMain.once('quit-confirmed', () => {
+    //     app.quit(); // Now actually quit
+    // });
+    // setTimeout(() => app.exit(0), 5000);
 });
 
 app.on('window-all-closed', function () {
     if (process.platform !== 'darwin') app.quit();
 });
 
-// process.on('uncaughtException', (error) => {
-//     console.error('Uncaught Exception:', error);
-// });
+process.on('uncaughtException', (error) => {
+    log.error('Uncaught Exception:', error);
+});
 
 // ... app setup ...
-// app.on('will-quit', async () => {
-//     // Ensure D-Bus cleanup happens before quitting
-//     await teardownDbusService();
-// });
+app.on('will-quit', async () => {
+    // Ensure D-Bus cleanup happens before quitting
+    await teardownDbusService();
+});

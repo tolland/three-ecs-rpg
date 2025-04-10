@@ -1,4 +1,3 @@
-import { Component } from '@ecs/Component';
 import * as THREE from 'three';
 import { RenderableComponent } from '@components/RenderableComponent';
 

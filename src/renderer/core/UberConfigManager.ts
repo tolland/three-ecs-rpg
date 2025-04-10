@@ -1,9 +1,15 @@
 // src/renderer/core/UberConfigManager.ts
-import { AppEventManager, appEventManager } from './AppEventManager'; // For emitting change events
-import { PhysicsConfigManager } from './PhysicsConfigManager'; // Import sub-managers
-// Import other config managers (Input, UI, etc.) as they are created
+import { AppEventManager, appEventManager } from './AppEventManager';
+import { IConfigManager } from '@core/ConfigManager'; // Import sub-managers
 
-// Define structure for config metadata (optional but useful for GUIs/validation)
+export interface ConfigSetter {
+    (value: any): void;
+}
+
+
+/**
+ *  Define structure for config metadata (optional but useful for GUIs/validation)
+ */
 export interface ConfigMetadata {
     type: 'number' | 'string' | 'boolean' | 'enum';
     min?: number;
@@ -13,41 +19,47 @@ export interface ConfigMetadata {
     description?: string;
 }
 
+/**
+ * The aim here was to create a single UberConfigManager that can manage multiple sub-managers. This would be the API for dbus and IPC access to configuration
+ */
 export class UberConfigManager {
-    // Store references to sub-managers
-    private physics: PhysicsConfigManager;
     // private input: InputConfigManager; // Add later
     // private ui: UIConfigManager; // Add later
+    private configManagers: Record<string, IConfigManager> = {};
+    private setters: Map<string, ConfigSetter> = new Map();
 
     private configTree: any = {}; // Represents the structure for GUIs
     private metadataMap: Map<string, ConfigMetadata> = new Map(); // Metadata for keys
 
     constructor(
-        physicsManager: PhysicsConfigManager,
-        // Inject other managers
         private eventManager: AppEventManager = appEventManager, // Use singleton by default
     ) {
-        this.physics = physicsManager;
-        // Register managers
-        this.registerManager(
-            'physics',
-            this.physics.getConfig(),
-            this.physics.getMetadata(),
-        ); // Assume managers provide these
+        // this.registerConfigManager('physics', physicsManager);
+        // this.registerConfigManager('simulation', simulationManager); // Register new manager
+
     }
 
-    // Method for sub-managers to register their config and metadata
-    // (Could be more sophisticated, e.g., manager provides setter functions too)
-    private registerManager(
-        prefix: string,
-        configObject: any,
-        metadata: Record<string, ConfigMetadata>,
-    ) {
-        this.configTree[prefix] = configObject;
+    registerConfigManager(prefix: string, manager: IConfigManager) {
+        this.configManagers[prefix] = manager;
+        const config = manager.getConfig();
+        const setters = manager.getSetters();
+        const metadata = manager.getMetadata();
+
+        this.configTree[prefix] = config;
+        for (const key in setters) {
+            this.setters.set(`${prefix}.${key}`, setters[key]);
+        }
         for (const key in metadata) {
             this.metadataMap.set(`${prefix}.${key}`, metadata[key]);
         }
-        // TODO: Recursively handle nested objects in configObject/metadata if needed
+    }
+
+    // Method for sub-managers to register their config and metadata
+    protected registerManager(prefix: string, /*...*/ setterMap: Record<string, ConfigSetter>) {
+        // ... store configTree/metadata ...
+        for(const key in setterMap) {
+            this.setters.set(`${prefix}.${key}`, setterMap[key]);
+        }
     }
 
     // --- Public API ---
@@ -76,42 +88,16 @@ export class UberConfigManager {
      * Example: set('physics.player.walkSpeed', 6.0)
      */
     set(key: string, value: any): boolean {
-        const keys = key.split('.');
-        const prefix = keys[0];
-        const subKey = keys.slice(1).join('.'); // Key within the sub-manager
-
-        try {
-            // TODO: Improve this routing - ideally call specific setters on sub-managers
-            // This basic version modifies the mirrored configTree directly,
-            // relying on sub-managers referencing the same object or needing notification.
-            // A better way: UberConfig stores setters provided by sub-managers.
-            let current: any = this.configTree;
-            for (let i = 0; i < keys.length - 1; i++) {
-                current = current[keys[i]];
-                if (current === undefined) return false; // Path doesn't exist
-            }
-            const finalKey = keys[keys.length - 1];
-            if (current[finalKey] === undefined) return false; // Key doesn't exist
-
-            // TODO: Add type validation based on metadataMap before setting
-            console.log(`UberConfigManager: Setting ${key} to ${value}`);
-            current[finalKey] = value;
-
-            // --- !!! Crucially, notify the actual sub-manager !!! ---
-            // This needs a better mechanism, e.g., calling a 'set' method on the sub-manager
-            if (prefix === 'physics') {
-                // this.physics.updateValueFromUber(subKey, value); // Need this method on PhysicsConfigManager
-            }
-            // else if (prefix === 'input') { ... }
-
-            // Emit a global change event
-            this.eventManager.emit('configChanged' as any, { key, value }); // Use a specific event type?
-
-            return true;
-        } catch (e) {
-            console.error(`UberConfigManager: Error setting key "${key}"`, e);
-            return false;
+        const setter = this.setters.get(key);
+        if(setter) {
+            try {
+                // TODO: Validate value against metadata before calling setter
+                setter(value);
+                this.eventManager.emit('configChanged' as any, { key, value });
+                return true;
+            } catch(e) { /* error */ return false; }
         }
+        return false; // Setter not found
     }
 
     /**

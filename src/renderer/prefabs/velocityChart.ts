@@ -1,10 +1,7 @@
 import { Prefab } from '@ecs/Prefab';
 import { World } from '@ecs/World';
-import { PositionComponent } from '@ecs/components';
-
 
 export class VelocityChart extends Prefab {
-
     private data: number[];
 
     constructor(
@@ -14,12 +11,11 @@ export class VelocityChart extends Prefab {
         protected color: string = 'blue',
         protected backgroundColor: string = 'white',
         protected xAxisLabel: string = 'Time (s)',
-        protected yAxisLabel: string = 'Velocity (m/s)'
+        protected yAxisLabel: string = 'Velocity (m/s)',
     ) {
         super(world);
         this.data = [];
     }
-
 
     public static create(world: World): Prefab {
         const entity = world.createEntity();

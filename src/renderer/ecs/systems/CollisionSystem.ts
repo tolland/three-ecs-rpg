@@ -7,19 +7,21 @@ import {
     VelocityComponent,
 } from '@ecs/components';
 import * as THREE from 'three';
-import { Raycaster } from 'three'; // Import event manager
-import { Octree } from 'three/examples/jsm/math/Octree.js'; // Import Octree
-import { Capsule } from 'three/examples/jsm/math/Capsule.js';
-import { DEBUG_OBJ } from '@renderer/main';
-import { createTemporaryVisual } from '@renderer/utils/main';
 import { appEventManager, AppEventManager } from '@core/AppEventManager';
+import { CollisionWorld } from '@renderer/logic/CollisionWorld';
+import { Capsule } from '@renderer/threejs/jsm/math/Capsule';
+import { scene } from '@core/sceneManager';
+import { createTemporaryVisual } from '@renderer/utils/main';
+import { Serializer } from '@shared/serialization/Serializer';
 
 export class CollisionSystem extends System {
-    private worldOctree: Octree | null = null;
+    @Serializer.Serialize()
+    private collisionWorld: CollisionWorld | null = null;
+    @Serializer.Serialize()
     private tempCapsule = new Capsule(); // Reusable capsule for checks
-    private tempVector = new THREE.Vector3();
-    private downRaycaster = new Raycaster(); // Add a specific raycaster for ground checks
-    private tempNormal = new THREE.Vector3();
+    // hold reference to loaded world chunks
+    private chunks: Map<string, CollisionWorld> = new Map(); // Key: chunk key "x_z"
+    private doRayCheck = true;
 
     constructor(
         world: World,
@@ -28,18 +30,27 @@ export class CollisionSystem extends System {
         super(world);
     }
 
-    // Call this after the world GLB/Octree is loaded
-    setWorldOctree(octree: Octree) {
-        this.worldOctree = octree;
-        console.log('CollisionSystem: World Octree set.');
+    // Methods called by WorldStreamingSystem @TODO
+    addChunk(key: string, octree: CollisionWorld) {
+        console.log(`CollisionSystem: Adding CollisionWorld for chunk ${key}`);
+        this.chunks.set(key, octree);
     }
 
-    getWorldOctree(): Octree | null {
-        return this.worldOctree;
-    } // Add this getter
+    removeChunk(key: string) {
+        console.log(
+            `CollisionSystem: Removing CollisionWorld for chunk ${key}`,
+        );
+        this.chunks.delete(key);
+    }
+
+    // Method to receive the collision world
+    setCollisionWorld(collisionWorld: CollisionWorld) {
+        this.collisionWorld = collisionWorld;
+        //console.log('CollisionSystem: Collision World set.');
+    }
 
     update(deltaTime: number): void {
-        if (!this.worldOctree) return; // Don't run without the world geometry
+        if (!this.collisionWorld) return;
 
         const entities = this.world.queryEntities([
             PositionComponent,
@@ -48,132 +59,169 @@ export class CollisionSystem extends System {
         ]);
 
         for (const entity of entities) {
-            const pos = this.world.getComponent(entity, PositionComponent)!;
-            const vel = this.world.getComponent(entity, VelocityComponent)!;
-            const collider = this.world.getComponent(
+            const position = this.world.getComponent(
+                entity,
+                PositionComponent,
+            )!;
+            const velocity = this.world.getComponent(
+                entity,
+                VelocityComponent,
+            )!;
+            const collider: ColliderComponent = this.world.getComponent(
                 entity,
                 ColliderComponent,
             )!;
-            if (!collider || !vel || !pos) continue;
 
-            const previousYVelocity = vel.value.y; // Store velocity before collision check
-            //console.log(`${DEBUG_OBJ2.updateId}" "${entity}" onGround: ${oldOnGround} ->> ${collider.onGround}`);
+            const previousYVelocity = velocity.value.y;
             const wasOnGround = collider.onGround;
+            let isCollided: boolean = false;
+            collider.collisions = [];
+            collider.groundNormal = null;
 
             // --- Reset state BEFORE checks ---
-            collider.onGround = false;
-            collider.collisions = [];
-            collider.groundNormal = null; // Reset ground normal
+            if (collider.onGround && collider.collisionTimeCheck()) {
+                if (entity == 0) console.log(`setting false due to time check`);
+                collider.onGround = false;
+            }
+            collider.timeCollisionDelta += deltaTime;
+
             // --- End Reset ---
 
-            // --- Capsule Collision Check ---
-            // Adapt capsule parameters from component
-            // this.tempCapsule.start.copy(pos.value).add(collider.offset);
-            // The full height of the capsule is the collider height + 2 * radius
-            // @TODO start appears to be at the bottom of the cylinder section?
-            this.tempCapsule.start
-                .copy(pos.value)
-                .add(new THREE.Vector3(0, collider.radius, 0));
-            this.tempCapsule.end
-                .copy(this.tempCapsule.start)
-                .add(new THREE.Vector3(0, collider.height, 0)); // Assumes offset is at the top
-            this.tempCapsule.radius = collider.radius;
+            // @TODO implement chunked collision checks
+            // this is world specific though. so should be put in the world class
+            // // --- Iterate through ALL loaded chunk Octrees for capsule collision ---
+            // for (const octree of this.chunkOctrees.values()) {
+            //     const result = octree.capsuleIntersect(this.tempCapsule);
+            //     if (result) {
+            //         if (!closestCapsuleHit || result.distance < closestCapsuleHit.distance) {
+            //             closestCapsuleHit = result; // Keep track of the NEAREST hit
+            //         }
+            //     }
+            // }
 
-            // Adjust capsule position slightly based on velocity for better checks
-            // const capsuleVelocityOffset = vel.value.clone().multiplyScalar(deltaTime);
-            // this.tempCapsule.start.add(capsuleVelocityOffset);
-            // this.tempCapsule.end.add(capsuleVelocityOffset);
-
-            const capsuleResult = this.worldOctree.capsuleIntersect(
+            // make the capsule match the collider
+            updateCapsule(
                 this.tempCapsule,
+                position.value,
+                collider.radius,
+                collider.height,
             );
 
-            let groundDetectedByCapsule = false;
-            if (capsuleResult && capsuleResult.normal.y > 0.7) {
-                groundDetectedByCapsule = true;
-                collider.onGround = true; // Tentative
-                collider.groundNormal = capsuleResult.normal.clone(); // Store normal
-                // Apply collision response for capsule
-                pos.value.add(
-                    capsuleResult.normal
-                        .clone()
-                        .multiplyScalar(capsuleResult.depth),
-                );
-                // Adjust velocity based ONLY on capsule result for now
-                if (vel.value.y < 0) vel.value.y = 0; // Stop downward velocity from capsule hit
-                vel.value.addScaledVector(
-                    capsuleResult.normal,
-                    -vel.value.dot(capsuleResult.normal),
-                ); // Sliding
-            }
+            let hitCount = 0;
+            const directionAccumulator = new THREE.Vector3();
 
-            // --- Optional: Downward Raycast Check (for stability) ---
-            const rayOrigin = this.tempVector
-                .copy(pos.value)
-                .add(collider.offset)
-                .add(
-                    new THREE.Vector3(
-                        0,
-                        -collider.height + collider.radius * 0.9,
-                        0,
-                    ),
-                ); // Origin slightly inside capsule bottom center
-            const rayLength = collider.radius * 0.2 + 0.1; // Short ray downward
-            this.downRaycaster.set(rayOrigin, new THREE.Vector3(0, -1, 0));
-            this.downRaycaster.far = rayLength;
-            const rayHit = this.worldOctree.rayIntersect(this.downRaycaster.ray);
-
-            // console.log(
-            //     `Raycast hit: ${rayHit}, distance: ${rayHit?.distance}, normal: ${rayHit?.normal}`,
-            // );
-            //console.dir(rayHit);
-
-            if (rayHit) { // Check if rayHit is not null
-                // --- Calculate normal from the triangle ---
-                // Provide tempNormal as the target for the result
-                rayHit.triangle.getNormal(this.tempNormal);
-                // --- End Normal Calculation ---
-                if (this.tempNormal.y > 0.7) {
-                    // If ray hits ground nearby, forcefully consider it grounded
-                    collider.onGround = true;
-                    if (!groundDetectedByCapsule) {
-                        // Only store normal if capsule didn't provide one
-                        collider.groundNormal = this.tempNormal.clone();
-                        // Optional: Apply slight position correction if ray hit but capsule didn't?
-                        // pos.value.y += (rayLength - rayHit.distance);
-                        if (vel.value.y < 0) vel.value.y = 0; // Ensure downward velocity stops
+            const capsuleResult2 = this.collisionWorld.capsuleIntersect(
+                this.tempCapsule,
+                (capsule, direction, depth, isGroundCollision, triPoint) => {
+                    isCollided = true;
+                    hitCount += 1;
+                    directionAccumulator.add(direction);
+                    scene.add(
+                        createTemporaryVisual(triPoint, scene, 15, 'yellow'),
+                    );
+                    if (isGroundCollision) {
+                        collider.onGround = true;
+                        collider.groundNormal = direction.clone();
+                        if (velocity.value.y < 0) velocity.value.y = 0;
+                        // velocity.addScaledVector(
+                        //     collider.groundNormal,
+                        //     -velocity.dot(collider.groundNormal),
+                        // );
+                    } else {
                     }
-                }
+                    // position.value.add(
+                    //     collider.groundNormal.clone().multiplyScalar(capsuleResult.depth),
+                    // );
+                    position.value.addScaledVector(direction, depth);
+                    collider.timeCollisionDelta = 0;
+                },
+            );
+
+            // Calculate the average direction
+            if (hitCount > 0) {
+                directionAccumulator.divideScalar(hitCount).normalize();
             }
-            // --- End Raycast Check ---
 
             // --- Emit Events Based on Final Ground State ---
+            // hard landing
             if (collider.onGround && !wasOnGround && previousYVelocity < -2.0) {
+                console.log(`entity: ${entity} just landed`);
                 // Just Landed
                 this.events.emit('ENTITY_COLLISION_IMPACT' as any, {
                     entityId: entity,
                     impactVelocity: Math.abs(previousYVelocity),
                     surfaceType: 'ground',
                 });
+            } else if (collider.onGround && !wasOnGround) {
+                console.log(`entity: ${entity} just landed lightly`);
             } else if (!collider.onGround && wasOnGround) {
+                console.log(`entity: ${entity} just left ground`);
                 // Just Left Ground (e.g., walked off ledge) - maybe trigger fall sound?
-            } else if (capsuleResult && !collider.onGround) {
+            } else if (!collider.onGround && isCollided) {
                 // Hit something that wasn't ground
                 // Wall Impact
-                if (Math.abs(vel.value.dot(capsuleResult.normal)) > 1.0) {
+                console.log(
+                    `hit not on ground entity: ${entity} hit estimate ${Math.abs(
+                        velocity.value.dot(directionAccumulator),
+                    )}`,
+                );
+                if (Math.abs(velocity.value.dot(directionAccumulator)) > 1.0) {
                     this.events.emit('ENTITY_COLLISION_IMPACT' as any, {
                         entityId: entity,
                         impactVelocity: Math.abs(
-                            vel.value.dot(capsuleResult.normal),
+                            velocity.value.dot(directionAccumulator),
                         ),
                         surfaceType: 'wall',
                     });
                 }
+            } else if (collider.onGround && wasOnGround) {
+                //console.log(`entity: ${entity} still on ground and was on ground`);
+            } else if (!collider.onGround && !wasOnGround) {
+                // console.log(
+                //     `entity: ${entity} no collision detected collider.onGround ${collider.onGround} wasOnGround ${wasOnGround} isCollided ${isCollided} previousYVelocity ${previousYVelocity}`,
+                // );
+            } else {
+                console.log(
+                    `ELSE entity: ${entity} collider.onGround ${collider.onGround} wasOnGround ${wasOnGround} isCollided ${isCollided} previousYVelocity ${previousYVelocity}`,
+                );
             }
-
+            // if (entity == 0 && Math.random() < 0.05)
+            //     console.log(
+            //         `vel at end of collision update entity: ${entity} velocity ${vel.value.y.toFixed(3)}`,
+            //     );
             // TODO: Implement Player-NPC / NPC-NPC collisions
             // This would involve iterating through pairs of entities with Colliders
             // and performing shape intersection tests (e.g., capsule-capsule).
         }
     }
+}
+
+/**
+ *
+ * update a capsule to match the collider provided
+ *
+ * @param tempCapsule
+ * @param pos
+ * @param radius
+ * @param height
+ */
+export function updateCapsule(
+    tempCapsule: Capsule,
+    pos: THREE.Vector3,
+    radius: number,
+    height: number,
+) {
+    // this.tempCapsule.start.copy(pos.value).add(collider.offset);
+    // The full height of the capsule is the collider height + 2 * radius
+    // @TODO start appears to be at the bottom of the cylinder section?
+    tempCapsule.start.copy(pos).add(new THREE.Vector3(0, radius, 0));
+    tempCapsule.end
+        .copy(tempCapsule.start)
+        .add(new THREE.Vector3(0, height, 0)); // Assumes offset is at the top
+    tempCapsule.radius = radius;
+    // Adjust capsule position slightly based on velocity for better checks
+    // const capsuleVelocityOffset = vel.value.clone().multiplyScalar(deltaTime);
+    // this.tempCapsule.start.add(capsuleVelocityOffset);
+    // this.tempCapsule.end.add(capsuleVelocityOffset);
+    // CollisionLogicCapsule.debugCapsule(tempCapsule);
 }

@@ -2,17 +2,14 @@
 import { System } from '@ecs/System';
 import { World } from '@ecs/World';
 import {
-    DebugColliderVisualComponent,
+    ColliderComponent,
     DebugBoundingBoxVisualComponent,
+    DebugColliderVisualComponent,
     DebugPositionIndicatorComponent,
     PositionComponent,
-    RotationComponent,
-    ColliderComponent,
     RenderableComponent,
-    AnimatedModelComponent,
 } from '@ecs/components';
 import * as THREE from 'three';
-import { GLTF } from 'three/examples/jsm/loaders/GLTFLoader'; // May need this if accessing animations directly
 
 export class DebugVisualsSystem extends System {
     private scene: THREE.Scene;
