@@ -149,8 +149,8 @@ export class RenderSystem extends System {
             // If this is the focused leaf, render a border/highlight
             if (focusedActiveView && leaf.id === focusedActiveView.viewportId) {
                 // Render border on top of the scene content
-                if (Math.random() < 0.05)
-                  console.log(`rendering border x ${x}, y ${y}, width ${width}, height ${height}`);
+                // if (Math.random() < 0.05)
+                //   console.log(`rendering border x ${x}, y ${y}, width ${width}, height ${height}`);
                 this.renderBorder(x, y, width, height);
             }
 
