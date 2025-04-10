@@ -5,6 +5,7 @@
   "compilerOptions": {
     "noEmit": true, // Important: This config shouldn't output files itself
     "target": "ES2018",
-    "moduleResolution": "node"
+    "moduleResolution": "node",
+    "esModuleInterop": true,
   }
 }

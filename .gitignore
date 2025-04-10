@@ -1,5 +1,6 @@
-
+.env
 node_modules/
+./three-ecs-rpg.code-workspace
 
 # === Python ===
 __pycache__/
