@@ -4,10 +4,7 @@ import { World } from '@ecs/World';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { CameraSystem, CollisionSystem } from '@ecs/systems';
 import { RenderLayers } from '@setup/sceneSetup';
-import {
-    worldConfigManager,
-    WorldConfigManager,
-} from '@core/WorldConfigManager';
+import { WorldConfigManager } from '@core/WorldConfigManager';
 import { audioManager } from '@core/AudioManager';
 import { createPlayable, PlayerAssets } from '@renderer/prefabs/playablePrefab';
 import { createDebugArrow } from '@renderer/prefabs/debugArrowPrefab';
@@ -73,10 +70,10 @@ export class WorldBuilder {
         try {
             // Load the configuration
             if (isWorldConfig(config)) {
-                console.log("using worldConfig directly");
+                console.log('using worldConfig directly');
                 this.worldConfig = config;
             } else {
-                console.log("loading worldConfig from file");
+                console.log('loading worldConfig from file');
                 this.worldConfig = await this.configManager.loadConfig(config);
             }
 

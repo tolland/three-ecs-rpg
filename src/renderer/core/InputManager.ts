@@ -7,7 +7,6 @@ import { Serializer } from '@shared/serialization/Serializer';
 import { ActionStates, KeyMappingConfig } from '@core/types';
 
 
-
 /**
  * This is the InputManager class that handles input events and maps them to actions.
  * It uses a configuration file to load key mappings and manages the state of input actions. It is eetting flags for the various inputs that it is managing.

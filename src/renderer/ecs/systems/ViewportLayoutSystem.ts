@@ -2,14 +2,7 @@
 import { System } from '@ecs/System';
 import { World } from '@ecs/World';
 import * as THREE from 'three';
-import {
-    generateId,
-    LayoutNode,
-    LeafNode,
-    SplitNode,
-    ViewportID,
-    ViewportRect,
-} from '@core/ViewportLayout';
+import { generateId, LayoutNode, LeafNode, SplitNode, ViewportID, ViewportRect } from '@core/ViewportLayout';
 import { Serializer } from '@shared/serialization/Serializer';
 import { appEventManager, AppEventManager } from '@renderer/core';
 import { AppAction } from '@shared/core';

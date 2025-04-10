@@ -1,15 +1,12 @@
 // src/renderer/ecs/systems/TelemetrySystem.ts
 import { System } from '@ecs/System';
 import { World } from '@ecs/World';
-import * as THREE from 'three';
 import { NumericComponent } from '@components/NumericComponent';
 
 export class TelemetrySystem extends System {
     private isEnabled: boolean = false;
 
-    constructor(
-        world: World,
-    ) {
+    constructor(world: World) {
         super(world);
     }
 

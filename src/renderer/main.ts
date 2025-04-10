@@ -115,7 +115,6 @@ Promise.all([
     inputManager.loadConfig('assets/configs/inputConfig.json'),
     physicsConfigManager.loadConfig('assets/configs/physicsConfig.json'),
 
-
     // Build world from YAML config
     worldBuilder.buildFromConfig(
         'assets/configs/world.yaml',
@@ -124,7 +123,6 @@ Promise.all([
         collisionSystem,
         cameraSystem,
     ),
-
 ])
     .then(() => {
         console.log(

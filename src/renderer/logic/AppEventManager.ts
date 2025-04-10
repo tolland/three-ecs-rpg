@@ -397,8 +397,7 @@ export function initAppEventManager(
         );
         if (!viewConfig) return;
 
-
-        console.log("got here");
+        console.log('got here');
         const modes: (CameraMode | 'FREECAM')[] = [
             CameraMode.FIRST_PERSON,
             CameraMode.THIRD_PERSON_ENTITY,

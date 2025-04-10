@@ -8,10 +8,7 @@ export function rendererAPI() {
     // Handle saving a file with data
     ipcMain.handle(
         'save-file',
-        async (
-            _event,
-            { filename, data, format = 'json', options = {} },
-        ) => {
+        async (_event, { filename, data, format = 'json', options = {} }) => {
             try {
                 let content = '';
 
@@ -37,7 +34,8 @@ export function rendererAPI() {
                 console.error('Error saving file:', error);
                 return {
                     success: false,
-                    error: error instanceof Error ? error.message : String(error),
+                    error:
+                        error instanceof Error ? error.message : String(error),
                 };
             }
         },
@@ -51,9 +49,9 @@ export function rendererAPI() {
                 defaultPath: path.join(app.getPath('documents'), 'world.yaml'),
                 filters: [
                     { name: 'YAML Files', extensions: ['yaml', 'yml'] },
-                    { name: 'All Files', extensions: ['*'] }
+                    { name: 'All Files', extensions: ['*'] },
                 ],
-                properties: ['createDirectory']
+                properties: ['createDirectory'],
             });
 
             if (canceled || !filePath) {
@@ -62,13 +60,13 @@ export function rendererAPI() {
 
             const content = YAML.stringify(worldConfig);
             await fs.promises.writeFile(filePath, content, 'utf8');
-            
+
             return { success: true, path: filePath };
         } catch (error) {
             console.error('Error saving world config:', error);
             return {
                 success: false,
-                error: error instanceof Error ? error.message : String(error)
+                error: error instanceof Error ? error.message : String(error),
             };
         }
     });
@@ -80,9 +78,9 @@ export function rendererAPI() {
                 title: 'Open World Configuration',
                 filters: [
                     { name: 'YAML Files', extensions: ['yaml', 'yml'] },
-                    { name: 'All Files', extensions: ['*'] }
+                    { name: 'All Files', extensions: ['*'] },
                 ],
-                properties: ['openFile']
+                properties: ['openFile'],
             });
 
             if (canceled || filePaths.length === 0) {
@@ -92,17 +90,17 @@ export function rendererAPI() {
             const filePath = filePaths[0];
             const content = await fs.promises.readFile(filePath, 'utf8');
             const worldConfig = YAML.parse(content);
-            
-            return { 
-                success: true, 
-                path: filePath, 
-                config: worldConfig 
+
+            return {
+                success: true,
+                path: filePath,
+                config: worldConfig,
             };
         } catch (error) {
             console.error('Error opening world config:', error);
             return {
                 success: false,
-                error: error instanceof Error ? error.message : String(error)
+                error: error instanceof Error ? error.message : String(error),
             };
         }
     });
@@ -116,7 +114,7 @@ export function rendererAPI() {
             console.error('Error reading file:', error);
             return {
                 success: false,
-                error: error instanceof Error ? error.message : String(error)
+                error: error instanceof Error ? error.message : String(error),
             };
         }
     });

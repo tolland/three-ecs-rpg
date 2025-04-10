@@ -1,6 +1,5 @@
 // src/renderer/core/FocusManager.ts
-import { CameraSystem, InputSystem, ViewportLayoutSystem } from '@ecs/systems';
-import { InputManager } from './InputManager';
+import { CameraSystem, ViewportLayoutSystem } from '@ecs/systems';
 import { AppEventManager, appEventManager } from './AppEventManager';
 import { World } from '@ecs/World';
 import { AppAction } from '@shared/core';
@@ -34,11 +33,7 @@ export class FocusManager implements Manager {
         this.layoutSystem = world.getSystem(ViewportLayoutSystem);
         this.cameraSystem = world.getSystem(CameraSystem);
 
-        if (
-            !this.layoutSystem ||
-            !this.cameraSystem ||
-            !this.world
-        ) {
+        if (!this.layoutSystem || !this.cameraSystem || !this.world) {
             console.error(
                 'FocusManager: Failed to get required system dependencies!',
             );

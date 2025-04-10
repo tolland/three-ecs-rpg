@@ -5,8 +5,11 @@ import { System } from './System';
 import { NameComponent } from '@ecs/components';
 import { Serializer } from '@shared/serialization/Serializer';
 import { three_replacer } from '@shared/serialization/three_replacer';
-import { EntityInfo, ComponentConstructor, ComponentInstance } from './types/World';
-
+import {
+    ComponentConstructor,
+    ComponentInstance,
+    EntityInfo,
+} from './types/World';
 
 export class World {
     private entities: Map<
@@ -40,8 +43,9 @@ export class World {
         const components = this.entities.get(entity);
         if (components) {
             // Use component's constructor as the key for easy lookup by type
-            const constructor = Object.getPrototypeOf(component).constructor as ComponentConstructor<Component>;
-            components.set(constructor , component);
+            const constructor = Object.getPrototypeOf(component)
+                .constructor as ComponentConstructor<Component>;
+            components.set(constructor, component);
             // console.debug(`ECS: Added ${component.constructor.name} to Entity ${entity}`);
         } else {
             console.warn(
@@ -240,7 +244,10 @@ export class World {
      * @param source
      * @private
      */
-    updateComponent(target: Record<string, any>, source: Record<string, unknown>): void {
+    updateComponent(
+        target: Record<string, any>,
+        source: Record<string, unknown>,
+    ): void {
         for (const key of Object.keys(source)) {
             if (
                 source[key] &&
@@ -252,7 +259,7 @@ export class World {
                 }
                 this.updateComponent(
                     target[key] as Record<string, unknown>,
-                    source[key] as Record<string, unknown>
+                    source[key] as Record<string, unknown>,
                 );
             } else {
                 target[key] = source[key];

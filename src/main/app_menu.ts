@@ -1,4 +1,4 @@
-import { shell, app, BrowserWindow, Menu } from 'electron';
+import { app, BrowserWindow, Menu, shell } from 'electron';
 
 /**
  * Create the application menu with File menu options

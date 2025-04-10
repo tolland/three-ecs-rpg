@@ -1,9 +1,13 @@
 import 'reflect-metadata';
 import { three_replacer } from './three_replacer';
-import { JsonObject, JsonValue, Replacer, SerializationContext } from '@shared/types/serialization';
+import {
+    JsonObject,
+    JsonValue,
+    Replacer,
+    SerializationContext,
+} from '@shared/types/serialization';
 
 export namespace Serializer {
-
     // Define more specific types for serialization metadata
     export interface SerializeMetadata<T, K extends keyof T = keyof T> {
         key: K;
@@ -43,15 +47,19 @@ export namespace Serializer {
 
             properties.push({
                 key: propertyKey as keyof T,
-                serializer: options.serializer as TypeSerializer<T[keyof T]> | undefined,
-                outputKey: options.outputKey
+                serializer: options.serializer as
+                    | TypeSerializer<T[keyof T]>
+                    | undefined,
+                outputKey: options.outputKey,
             });
             Reflect.defineMetadata('serializable', properties, constructor);
         };
     }
 
     // Built-in type serializers
-    const mapSerializer: TypeSerializer<Map<string | number | symbol, unknown>> = {
+    const mapSerializer: TypeSerializer<
+        Map<string | number | symbol, unknown>
+    > = {
         serialize: (map: Map<string | number | symbol, unknown>) => {
             const result: Record<string, JsonValue> = {};
             map.forEach((value, key) => {
@@ -96,7 +104,6 @@ export namespace Serializer {
         context: SerializationContext = { mode: 'full', depth: 0 },
         replacers: Replacer[] = [three_replacer],
     ): JsonValue {
-
         if (value === null || value === undefined) {
             return value as JsonValue;
         }
@@ -131,7 +138,11 @@ export namespace Serializer {
         const result: JsonObject = {};
         if (value.constructor && value.constructor !== Object) {
             // For class instances, use metadata
-            const properties: SerializeMetadata<T>[] = Reflect.getMetadata('serializable', value.constructor) as Array<SerializeMetadata<T>> || [];
+            const properties: SerializeMetadata<T>[] =
+                (Reflect.getMetadata(
+                    'serializable',
+                    value.constructor,
+                ) as Array<SerializeMetadata<T>>) || [];
             for (const { key, serializer, outputKey } of properties) {
                 const propValue = (value as T)[key as keyof T];
                 const targetKey = outputKey || String(key);
@@ -192,7 +203,10 @@ export namespace Serializer {
 
         // Handle objects and class instances
         const instance = new targetClass();
-        const properties = Reflect.getMetadata('serializable', targetClass) as Array<SerializeMetadata<T>> || [];
+        const properties =
+            (Reflect.getMetadata('serializable', targetClass) as Array<
+                SerializeMetadata<T>
+            >) || [];
 
         //const propValue = (value as T)[key as keyof T];
 
@@ -201,13 +215,13 @@ export namespace Serializer {
             const propValue = (value as Record<string, JsonValue>)[lookupKey];
             if (propValue !== undefined) {
                 if (serializer?.deserialize) {
-                    (instance as Record<string | symbol, unknown>)[key as string | symbol] = serializer.deserialize(propValue);
+                    (instance as Record<string | symbol, unknown>)[
+                        key as string | symbol
+                    ] = serializer.deserialize(propValue);
                 } else {
-                    (instance as Record<string | symbol, unknown>)[key as string | symbol] = deserialize(
-                        propValue,
-                        Object,
-                        context,
-                    );
+                    (instance as Record<string | symbol, unknown>)[
+                        key as string | symbol
+                    ] = deserialize(propValue, Object, context);
                 }
             }
         }

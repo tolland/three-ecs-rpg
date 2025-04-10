@@ -1,23 +1,11 @@
 // src/renderer/ecs/systems/CameraSystem.ts
 import { ActiveView } from '@core/ActiveView';
 import { audioManager } from '@core/AudioManager';
-import {
-    createDefaultViewConfig,
-    ViewConfiguration,
-} from '@core/ViewConfiguration';
-import {
-    CameraID,
-    generateId,
-    ViewConfigID,
-    ViewportID,
-} from '@core/ViewportLayout';
+import { createDefaultViewConfig, ViewConfiguration } from '@core/ViewConfiguration';
+import { CameraID, generateId, ViewConfigID, ViewportID } from '@core/ViewportLayout';
 import { System } from '@ecs/System';
 import { World } from '@ecs/World';
-import {
-    CameraMode,
-    PositionComponent,
-    RotationComponent,
-} from '@ecs/components';
+import { CameraMode, PositionComponent, RotationComponent } from '@ecs/components';
 import { CollisionWorld } from '@renderer/logic/CollisionWorld';
 import { RenderLayers } from '@setup/sceneSetup';
 import { ViewportLayoutSystem } from '@systems/ViewportLayoutSystem';

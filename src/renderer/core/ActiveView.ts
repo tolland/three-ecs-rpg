@@ -1,7 +1,6 @@
 // src/renderer/core/ActiveView.ts
-import { CameraID, ViewConfigID, ViewportID } from './ViewportLayout';
+import { CameraID, generateId, ViewConfigID, ViewportID } from './ViewportLayout';
 import { ViewportLayoutSystem } from '@renderer/ecs/systems/ViewportLayoutSystem';
-import { generateId } from './ViewportLayout';
 import { LayoutEvent } from '@shared/ipc/ips.types';
 
 /**

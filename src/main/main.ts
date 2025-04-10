@@ -6,7 +6,6 @@ import log from 'electron-log';
 import { rendererAPI } from '@main/rendererAPI';
 import { AppAction } from '@shared/core';
 import { createApplicationMenu } from '@main/app_menu';
-import { Serializer } from '@shared/serialization/Serializer';
 
 log.transports.file.level = 'debug';
 log.info('Application starting...');

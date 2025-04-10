@@ -1,8 +1,7 @@
 import { SaveFileOptions } from '@shared/ipc/ips.types';
 import { JsonValue } from '@shared/types/serialization';
 
-class SaveResult {
-}
+class SaveResult {}
 
 /**
  * Saves configuration to a file using Electron IPC
