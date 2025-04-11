@@ -10,6 +10,7 @@ import {
     ComponentInstance,
     EntityInfo,
 } from './types/World';
+import * as F from '@renderer/utils/chalkColors';
 
 export class World {
     private entities: Map<
@@ -26,6 +27,9 @@ export class World {
         const entityId = this.nextEntityId++;
         this.entities.set(entityId, new Map());
         // console.debug(`ECS: Created Entity ${entityId}`);
+        console.log(
+            `${F.fcMagenta('World')}: Created entity ${entityId}}`,
+        );
         return entityId;
     }
 

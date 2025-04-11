@@ -213,10 +213,10 @@ export function initAppEventManager(
         }
     });
 
-    eventManager.on(AppAction.SPLITSCREEN_HORIZONTAL, () => {
-        console.log('Setting Single Screen (Main)');
-        //cameraSystem.setSingleScreen('main');
-    });
+    // eventManager.on(AppAction.SPLITSCREEN_HORIZONTAL, () => {
+    //     console.log('Setting Single Screen (Main)');
+    //     //cameraSystem.setSingleScreen('main');
+    // });
 
     // Optional: Cycle Camera Logic
     let availableCameraIds: string[] = ['main', 'npc1']; // Example IDs
@@ -279,17 +279,17 @@ export function initAppEventManager(
     });
 
     // --- Viewport Manipulation ---
-    eventManager.on(AppAction.VIEWPORT_SPLIT_HORIZONTAL, () => {
-        const focusedView = cameraSystem.getFocusedActiveView();
-        if (focusedView) {
-            layoutSystem.splitHorizontal(focusedView.viewportId);
-        } else {
-            // If no focus, split the root maybe?
-            if (layoutSystem.getRootNode().type === 'leaf') {
-                layoutSystem.splitHorizontal(layoutSystem.getRootNode().id);
-            }
-        }
-    });
+    // eventManager.on(AppAction.VIEWPORT_SPLIT_HORIZONTAL, () => {
+    //     const focusedView = cameraSystem.getFocusedActiveView();
+    //     if (focusedView) {
+    //         layoutSystem.splitHorizontal(focusedView.viewportId);
+    //     } else {
+    //         // If no focus, split the root maybe?
+    //         if (layoutSystem.getRootNode().type === 'leaf') {
+    //             layoutSystem.splitHorizontal(layoutSystem.getRootNode().id);
+    //         }
+    //     }
+    // });
     eventManager.on(AppAction.VIEWPORT_SPLIT_VERTICAL, () => {
         const focusedView = cameraSystem.getFocusedActiveView();
         if (focusedView) {
@@ -300,14 +300,18 @@ export function initAppEventManager(
             }
         }
     });
-    eventManager.on(AppAction.VIEWPORT_MERGE_FOCUSED, () => {
-        const focusedView = cameraSystem.getFocusedActiveView();
-        if (focusedView) {
-            layoutSystem.mergeLeaf(focusedView.viewportId);
-            // Focus might need to be reset after merge
-            cameraSystem.setFocus(null); // Or focus the sibling that remains
-        }
-    });
+    /**
+     * event received from keyinput or dbus, indicating a request to merged
+     * the focused viewport.
+     */
+    // eventManager.on(AppAction.VIEWPORT_MERGE_FOCUSED, () => {
+    //     const focusedView = cameraSystem.getFocusedActiveView();
+    //     if (focusedView) {
+    //         layoutSystem.mergeLeaf(focusedView.viewportId);
+    //         // Focus might need to be reset after merge
+    //         cameraSystem.setFocus(null); // Or focus the sibling that remains
+    //     }
+    // });
 
     // // --- Focus Cycling ---
     // let focusCycleIndex = 0;

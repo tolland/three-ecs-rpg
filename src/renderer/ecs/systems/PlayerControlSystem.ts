@@ -9,11 +9,15 @@ import {
     LookDirectionComponent,
     NeedsUpdateComponent,
     PlayerControlledComponent,
+    PositionComponent,
     RotationComponent,
     VelocityComponent,
 } from '@ecs/components';
 import * as THREE from 'three';
-import { PhysicsConfigManager, PlayerPhysicsConfig } from '@core/PhysicsConfigManager';
+import {
+    PhysicsConfigManager,
+    PlayerPhysicsConfig,
+} from '@core/PhysicsConfigManager';
 import { appEventManager, AppEventManager, InputManager } from '@renderer/core';
 import { InputAction } from '@shared/core/InputActions';
 import { MovementStateComponent } from '@components/MovementStateComponent';
@@ -21,6 +25,9 @@ import { CameraSystem } from '@systems/CameraSystem';
 import { Entity } from '@ecs/Entity';
 import { Formatting } from '@renderer/utils/formatting';
 import { LoggingService } from '@systems/LoggingService';
+import { Serializer } from '@shared/serialization/Serializer';
+import { serializeForConsole } from '@shared/core/utils';
+import { ActiveView } from '@core/types/activeView';
 
 /**
  * PlayerControlSystem
@@ -31,6 +38,8 @@ export class PlayerControlSystem extends System {
     private cameraRotationVertical = 0; // Store vertical rotation separately to clamp it
     private flyToggleDebounce = false;
     private cameraSystem: CameraSystem | undefined;
+
+    private focusedActiveView: ActiveView | undefined;
 
     // Store reference to manager
     constructor(
@@ -51,34 +60,31 @@ export class PlayerControlSystem extends System {
      * @param {number} deltaTime - The time elapsed since the last update.
      */
     update(deltaTime: number): void {
-        if (!this.cameraSystem) return;
+        // if (!this.cameraSystem) return;
+        //
+        // const focusedView = this.cameraSystem.getFocusedActiveView();
+        // if (!focusedView) return; // No view has focus
+        //
+        // const viewConfig = this.cameraSystem.getViewConfiguration(
+        //     focusedView.viewConfigId,
+        // );
+        //
+        // if (
+        //     !viewConfig ||
+        //     viewConfig.mode === 'FREECAM' ||
+        //     viewConfig.targetEntity === null
+        // ) {
+        //     // This system only controls entities linked to
+        //     // non-freecam focused views
+        //     return;
+        // }
 
-        const focusedView = this.cameraSystem.getFocusedActiveView();
-        if (!focusedView) return; // No view has focus
+        // const entity = viewConfig.targetEntity; // The entity being controlled
 
-        const viewConfig = this.cameraSystem.getViewConfiguration(
-            focusedView.viewConfigId,
-        );
-
-        if (
-            !viewConfig ||
-            viewConfig.mode === 'FREECAM' ||
-            viewConfig.targetEntity === null
-        ) {
-            // This system only controls entities linked to
-            // non-freecam focused views
-            return;
-        }
-
-        const entity = viewConfig.targetEntity; // The entity being controlled
-        if (!this.world.hasComponent(entity, PlayerControlledComponent)) {
-            return; // Only act if the target entity is marked as player controlled
-        }
-
-        // Ensure entity has LookDirectionComponent
-        if (!this.world.hasComponent(entity, LookDirectionComponent)) {
-            this.world.addComponent(entity, new LookDirectionComponent());
-        }
+        // // Ensure entity has LookDirectionComponent
+        // if (!this.world.hasComponent(entity, LookDirectionComponent)) {
+        //     this.world.addComponent(entity, new LookDirectionComponent());
+        // }
 
         const entities = this.world.queryEntities([
             PlayerControlledComponent,
@@ -90,122 +96,143 @@ export class PlayerControlSystem extends System {
             ForceAccumulatorComponent,
         ]);
 
-        if (entities.length === 0) return;
+        for (const entity of entities) {
+            // @TODO erm this is a temp solution
+            if (entities.length > 1 || entity !== entities[0]) {
+                console.warn(
+                    `PlayerControlSystem: More than one player controlled entity found or entity mismatch! ${entities.length}`,
+                );
+            }
 
-        // @TODO erm this is a temp solution
-        if (entities.length > 1 || entity !== entities[0]) {
-            console.warn(
-                'PlayerControlSystem: More than one player controlled entity found or entity mismatch!',
-            );
-        }
-
-        const vel = this.world.getComponent(entity, VelocityComponent)!;
-        const rot = this.world.getComponent(entity, RotationComponent)!;
-        const lookDir = this.world.getComponent(entity, LookDirectionComponent)!;
-        const input = this.world.getComponent(
-            entity,
-            InputControllableComponent,
-        )!;
-        const stateComp = this.world.getComponent(
-            entity,
-            MovementStateComponent,
-        )!;
-        const forceComp = this.world.getComponent(
-            entity,
-            ForceAccumulatorComponent,
-        )!;
-        const collider = this.world.getComponent(entity, ColliderComponent); // Need for jump check
-        const cameraTarget = this.world.getComponent(
-            entity,
-            CameraTargetComponent,
-        ); // Get camera target info
-
-        const currentCameraMode = cameraTarget?.mode ?? CameraMode.FIRST_PERSON;
-        const playerCfg = this.physicsConfig.getPlayerConfig();
-        const globalDamping = this.physicsConfig.getGlobalDamping();
-
-        // Update look direction based on input
-        this.handleLookDirection(input, lookDir, currentCameraMode, cameraTarget);
-        this.handleStateTransition(stateComp, collider);
-        this.handleFlyingToggle(input, stateComp, vel);
-
-        const thrustForce = new THREE.Vector3();
-        const movementInputActive =
-            input.actions.forward ||
-            input.actions.backward ||
-            input.actions.left ||
-            input.actions.right ||
-            input.actions.orbitLeft ||
-            input.actions.orbitRight ||
-            input.actions.rotateLeft ||
-            input.actions.rotateRight;
-        const worldMoveDirection = new THREE.Vector3();
-
-        if (stateComp.state === 'flying') {
-            this.handleFlyingControls(
+            const vel = this.world.getComponent(entity, VelocityComponent)!;
+            const rot = this.world.getComponent(entity, RotationComponent)!;
+            const lookDir = this.world.getComponent(
                 entity,
+                LookDirectionComponent,
+            )!;
+            const input = this.world.getComponent(
+                entity,
+                InputControllableComponent,
+            )!;
+
+            if (Math.random() < 0.05)
+                console.log(serializeForConsole(Serializer.serialize(input)));
+
+            const stateComp = this.world.getComponent(
+                entity,
+                MovementStateComponent,
+            )!;
+            const forceComp = this.world.getComponent(
+                entity,
+                ForceAccumulatorComponent,
+            )!;
+            const collider = this.world.getComponent(entity, ColliderComponent); // Need for jump check
+            const cameraTarget = this.world.getComponent(
+                entity,
+                CameraTargetComponent,
+            ); // Get camera target info
+
+            if (Math.random() < 0.05)
+                console.log(serializeForConsole(Serializer.serialize(input)));
+
+            const currentCameraMode =
+                cameraTarget?.mode ?? CameraMode.FIRST_PERSON;
+            const playerCfg = this.physicsConfig.getPlayerConfig();
+            const globalDamping = this.physicsConfig.getGlobalDamping();
+
+            // Update look direction based on input
+            this.handleLookDirection(
                 input,
-                playerCfg,
-                vel,
-                forceComp,
-                thrustForce,
-                lookDir,
-            );
-        } else {
-            this.handleGroundedControls(
-                input,
-                playerCfg,
-                deltaTime,
                 lookDir,
                 currentCameraMode,
                 cameraTarget,
-                vel,
-                forceComp,
-                thrustForce,
-                worldMoveDirection,
-                movementInputActive,
             );
-            this.handleJumping(
-                input,
-                collider?.onGround ?? false,
-                vel,
+            this.handleStateTransition(stateComp, collider);
+            this.handleFlyingToggle(input, stateComp, vel);
+
+            const thrustForce = new THREE.Vector3();
+            const movementInputActive =
+                input.actions.forward ||
+                input.actions.backward ||
+                input.actions.left ||
+                input.actions.right ||
+                input.actions.orbitLeft ||
+                input.actions.orbitRight ||
+                input.actions.rotateLeft ||
+                input.actions.rotateRight;
+            const worldMoveDirection = new THREE.Vector3();
+
+            if (Math.random() < 0.05)
+                console.log(
+                    serializeForConsole(
+                        Serializer.serialize(movementInputActive),
+                    ),
+                );
+
+            if (stateComp.state === 'flying') {
+                this.handleFlyingControls(
+                    entity,
+                    input,
+                    playerCfg,
+                    vel,
+                    forceComp,
+                    thrustForce,
+                    lookDir,
+                );
+            } else {
+                this.handleGroundedControls(
+                    input,
+                    playerCfg,
+                    deltaTime,
+                    lookDir,
+                    currentCameraMode,
+                    cameraTarget,
+                    vel,
+                    forceComp,
+                    thrustForce,
+                    worldMoveDirection,
+                    movementInputActive,
+                );
+                this.handleJumping(
+                    input,
+                    collider?.onGround ?? false,
+                    vel,
+                    stateComp,
+                    entity,
+                );
+            }
+            forceComp.force.add(thrustForce);
+            if (entity == 0 && Math.random() < 0.001) {
+                console.log(
+                    `thrustForce after forceComp = ${Formatting.fVec3(thrustForce)} forceComp.force = ${Formatting.fVec3(forceComp.force)}`,
+                );
+            }
+            LoggingService.getInstance().logVectorUpdate({
+                entityId: entity,
+                type: 'force',
+                x: forceComp.force.x,
+                y: forceComp.force.y,
+                z: forceComp.force.z,
+                timestamp: Date.now(),
+            });
+            this.handlePlayerRotation(
                 stateComp,
+                currentCameraMode,
+                movementInputActive,
+                rot,
+                worldMoveDirection,
                 entity,
             );
+            this.handlePlayerActions(entity);
         }
-        forceComp.force.add(thrustForce);
-        if (entity == 0 && Math.random() < 0.001) {
-            console.log(
-                `thrustForce after forceComp = ${Formatting.fVec3(thrustForce)} forceComp.force = ${Formatting.fVec3(forceComp.force)}`,
-            );
-        }
-        LoggingService.getInstance().logVectorUpdate({
-            entityId: entity,
-            type: 'force',
-            x: forceComp.force.x,
-            y: forceComp.force.y,
-            z: forceComp.force.z,
-            timestamp: Date.now(),
-        });
-        this.handlePlayerRotation(
-            stateComp,
-            currentCameraMode,
-            movementInputActive,
-            rot,
-            worldMoveDirection,
-            entity,
-        );
-        this.handlePlayerActions(entity);
     }
 
     /**
      * Handles camera rotation based on mouse input.
-     * @param {Entity} entity - The entity to update.
      * @param {InputControllableComponent} input - The input component.
-     * @param {RotationComponent} rot - The rotation component.
+     * @param lookDir
      * @param {CameraTargetComponent | undefined} cameraTarget - The camera target component.
      * @param {CameraMode} currentCameraMode - The current camera mode.
-     * @param viewConfig
      */
     private handleLookDirection(
         input: InputControllableComponent,
@@ -299,6 +326,7 @@ export class PlayerControlSystem extends System {
      * @param {VelocityComponent} vel - The velocity component.
      * @param {ForceAccumulatorComponent} forceComp - The force accumulator component.
      * @param {THREE.Vector3} thrustForce - The thrust force vector.
+     * @param lookDir
      */
     private handleFlyingControls(
         entity: Entity,
@@ -313,8 +341,12 @@ export class PlayerControlSystem extends System {
         const flyVerticalSpeed = playerCfg.walkSpeed;
         const flyDamping = 2.0;
 
-        const flyForward = new THREE.Vector3(0, 0, -1).applyQuaternion(lookDir.value);
-        const flyRight = new THREE.Vector3(1, 0, 0).applyQuaternion(lookDir.value);
+        const flyForward = new THREE.Vector3(0, 0, -1).applyQuaternion(
+            lookDir.value,
+        );
+        const flyRight = new THREE.Vector3(1, 0, 0).applyQuaternion(
+            lookDir.value,
+        );
         const flyUp = new THREE.Vector3(0, 1, 0);
 
         let flyDirection = new THREE.Vector3();
@@ -337,7 +369,7 @@ export class PlayerControlSystem extends System {
      * @param {InputControllableComponent} input - The input component.
      * @param {any} playerCfg - The player configuration.
      * @param {number} deltaTime - The time elapsed since the last update.
-     * @param {RotationComponent} rot - The rotation component.
+     * @param lookDir
      * @param {CameraMode} currentCameraMode - The current camera mode.
      * @param {CameraTargetComponent | undefined} cameraTarget - The camera target component.
      * @param {VelocityComponent} vel - The velocity component.
@@ -359,11 +391,17 @@ export class PlayerControlSystem extends System {
         worldMoveDirection: THREE.Vector3,
         movementInputActive: boolean,
     ) {
+        if (Math.random() < 0.05)
+            console.log(serializeForConsole(Serializer.serialize(input)));
         const targetSpeed = input.actions.run
             ? playerCfg.runSpeed
             : playerCfg.walkSpeed;
-        const forwardVector = new THREE.Vector3(0, 0, -1).applyQuaternion(lookDir.value);
-        const rightVector = new THREE.Vector3(1, 0, 0).applyQuaternion(lookDir.value);
+        const forwardVector = new THREE.Vector3(0, 0, -1).applyQuaternion(
+            lookDir.value,
+        );
+        const rightVector = new THREE.Vector3(1, 0, 0).applyQuaternion(
+            lookDir.value,
+        );
 
         if (input.actions.forward) worldMoveDirection.add(forwardVector);
         if (input.actions.backward) worldMoveDirection.sub(forwardVector);
@@ -372,6 +410,11 @@ export class PlayerControlSystem extends System {
 
         worldMoveDirection.y = 0;
         worldMoveDirection.normalize();
+
+        if (Math.random() < 0.05)
+            console.log(
+                serializeForConsole(Serializer.serialize(worldMoveDirection)),
+            );
 
         if (movementInputActive) {
             const currentHorizontalVel = new THREE.Vector3(

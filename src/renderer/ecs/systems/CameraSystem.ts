@@ -1,11 +1,19 @@
 // src/renderer/ecs/systems/CameraSystem.ts
-import { ActiveView } from '@core/ActiveView';
 import { audioManager } from '@core/AudioManager';
-import { createDefaultViewConfig, ViewConfiguration } from '@core/ViewConfiguration';
-import { CameraID, generateId, ViewConfigID, ViewportID } from '@core/ViewportLayout';
+import {
+    createDefaultViewConfig,
+    ViewConfiguration,
+} from '@core/ViewConfiguration';
+import {
+    generateId,
+} from '@core/ViewportLayout';
 import { System } from '@ecs/System';
 import { World } from '@ecs/World';
-import { CameraMode, PositionComponent, RotationComponent } from '@ecs/components';
+import {
+    CameraMode,
+    PositionComponent,
+    RotationComponent,
+} from '@ecs/components';
 import { CollisionWorld } from '@renderer/logic/CollisionWorld';
 import { RenderLayers } from '@setup/sceneSetup';
 import { ViewportLayoutSystem } from '@systems/ViewportLayoutSystem';
@@ -16,6 +24,9 @@ import { appEventManager, AppEventManager } from '@renderer/core';
 import { AppAction } from '@shared/core';
 import { LayoutEvent } from '@shared/ipc/ips.types';
 import { RegisterManager } from '@core/ManagerRegistry';
+import * as F from '@renderer/utils/chalkColors';
+import { CameraID, ViewConfigID, ViewportID } from '@renderer/core/types/viewport';
+import { ActiveView } from '@core/types/activeView';
 
 /**
  *
@@ -33,7 +44,7 @@ export class CameraSystem extends System {
     private viewConfigurations: Map<ViewConfigID, ViewConfiguration> =
         new Map();
 
-    @Serializer.Serialize({outputKey: "activeViews"})
+    @Serializer.Serialize({ outputKey: 'activeViews' })
     private _activeViews: Map<string, ActiveView> = new Map(); // Key: ActiveView ID
 
     // Dependencies
@@ -41,9 +52,9 @@ export class CameraSystem extends System {
     // Need access to world geometry for raycasting
     private collisionWorld: CollisionWorld | null = null;
 
-    // Focused View Tracking
-    @Serializer.Serialize({outputKey: "focusedActiveViewId"})
-    private _focusedActiveViewId: string | null = null;
+    // // Focused View Tracking
+    // @Serializer.Serialize({ outputKey: 'focusedActiveViewId' })
+    // private _focusedActiveViewId: string | null = null;
 
     // @TODO implement world chunks
     private chunks: Map<string, CollisionWorld> = new Map(); // Key: chunk key "x_z"
@@ -67,20 +78,43 @@ export class CameraSystem extends System {
         // Let's assume we set it via a method for now.
         this.listener = new THREE.AudioListener();
         audioManager.listener = this.listener; // Provide listener to the manager
-        console.log('AudioListener created and assigned to AudioManager.');
+        console.log(
+            `${F.fcYellow('CameraSystem')}: AudioListener created and assigned to AudioManager.`,
+        );
         this.registerListeners();
     }
 
     registerListeners() {
         this.events.on(
-            AppAction.LAYOUT_UPDATED,
+            AppAction.VIEWPORT_LAYOUT_UPDATED,
             this.handleLayoutUpdated.bind(this),
         );
+        this.events.on(
+            AppAction.FOCUS_CHANGED,
+            this.handleFocusChanged.bind(this),
+        );
+    }
+
+    private handleFocusChanged(payload: { activeViewId: string | null }) {
+        // this._focusedActiveViewId = payload.activeViewId;
+        console.log(
+            `${F.fcYellow('CameraSystem')}: Focus changed to ActiveView ${payload.activeViewId}`,
+        );
+
+        if (payload.activeViewId) {
+            const activeView = this._activeViews.get(payload.activeViewId);
+            if (activeView) {
+                const camera = this.cameraInstances.get(activeView.cameraId);
+                if (camera) {
+                    this.updateAudioListener(camera);
+                }
+            }
+        }
     }
 
     private handleLayoutUpdated(event: LayoutEvent): void {
         console.log(
-            `saw event with payload ${serializeForConsole(Serializer.serialize(event))}`,
+            `${F.fcYellow('CameraSystem')}: saw event with payload ${serializeForConsole(Serializer.serialize(event))}`,
         );
         switch (event.type) {
             case 'leaf-split':
@@ -89,7 +123,9 @@ export class CameraSystem extends System {
                     event.newNodeIds.forEach((newNodeId: string) => {
                         const existingView =
                             this.getActiveViewForViewport(newNodeId);
-                        console.log('handling leaf split');
+                        console.log(
+                            `${F.fcYellow('CameraSystem')}: handling leaf split`,
+                        );
                     });
                 }
                 break;
@@ -104,7 +140,7 @@ export class CameraSystem extends System {
                         activeView.viewportId = event.sourceNodeId;
                     } else {
                         console.warn(
-                            `CameraSystem: ActiveView ${event.viewId} not found.`,
+                            `${F.fcYellow('CameraSystem')}: ActiveView ${event.viewId} not found.`,
                         );
                     }
                 }
@@ -116,7 +152,9 @@ export class CameraSystem extends System {
     registerDependencies() {
         this.layoutSystem = this.world.getSystem(ViewportLayoutSystem);
         if (!this.layoutSystem)
-            console.error('CameraSystem: ViewportLayoutSystem not found!');
+            console.error(
+                `\`${F.fcYellow('CameraSystem')}: ViewportLayoutSystem not found!`,
+            );
         // CollisionWorld is set via setCollisionWorld
     }
 
@@ -126,7 +164,7 @@ export class CameraSystem extends System {
 
     setCollisionWorld(collisionWorld: CollisionWorld | null) {
         this.collisionWorld = collisionWorld;
-        console.log('CameraSystem: Collision World set.');
+        console.log(`${F.fcYellow('CameraSystem')}: Collision World set.`);
     }
 
     // Call this when the renderer size changes
@@ -141,13 +179,15 @@ export class CameraSystem extends System {
 
     // Methods called by WorldStreamingSystem @TODO
     addChunk(key: string, octree: CollisionWorld) {
-        console.log(`CollisionSystem: Adding CollisionWorld for chunk ${key}`);
+        console.log(
+            `${F.fcYellow('CameraSystem')}: Adding CollisionWorld for chunk ${key}`,
+        );
         this.chunks.set(key, octree);
     }
 
     removeChunk(key: string) {
         console.log(
-            `CollisionSystem: Removing CollisionWorld for chunk ${key}`,
+            `${F.fcYellow('CameraSystem')}: Removing CollisionWorld for chunk ${key}`,
         );
         this.chunks.delete(key);
     }
@@ -161,7 +201,7 @@ export class CameraSystem extends System {
     ): THREE.PerspectiveCamera | null {
         if (this.cameraInstances.has(id)) {
             console.warn(
-                `CameraSystem: Camera instance with ID ${id} already exists.`,
+                `${F.fcYellow('CameraSystem')}: Camera instance with ID ${id} already exists.`,
             );
             return this.cameraInstances.get(id)!;
         }
@@ -171,7 +211,9 @@ export class CameraSystem extends System {
         camera.layers.enable(RenderLayers.PLAYER_LAYER);
         this.cameraInstances.set(id, camera);
         this.scene.add(camera); // Add to scene immediately
-        console.log(`CameraSystem: Created camera instance ${id}`);
+        console.log(
+            `${F.fcYellow('CameraSystem')}: Created camera instance "${id}"`,
+        );
         return camera;
     }
 
@@ -181,7 +223,9 @@ export class CameraSystem extends System {
             this.scene.remove(camera);
             this.cameraInstances.delete(id);
             // TODO: Ensure no ActiveView is using this camera ID
-            console.log(`CameraSystem: Destroyed camera instance ${id}`);
+            console.log(
+                `${F.fcYellow('CameraSystem')}: Destroyed camera instance ${id}`,
+            );
         }
     }
 
@@ -192,7 +236,7 @@ export class CameraSystem extends System {
     ): ViewConfiguration {
         if (this.viewConfigurations.has(id)) {
             console.warn(
-                `CameraSystem: View configuration with ID ${id} already exists.`,
+                `${F.fcYellow('CameraSystem')}: View configuration with ID ${id} already exists.`,
             );
             return this.viewConfigurations.get(id)!;
         }
@@ -201,7 +245,9 @@ export class CameraSystem extends System {
             ...initialState,
         };
         this.viewConfigurations.set(id, newConfig);
-        console.log(`CameraSystem: Created view configuration ${id} (${name})`);
+        console.log(
+            `${F.fcYellow('CameraSystem')}: Created view configuration ${id} (${name}) targetEntity ${newConfig.targetEntity}`,
+        );
         return newConfig;
     }
 
@@ -252,19 +298,19 @@ export class CameraSystem extends System {
     ): ActiveView | null {
         if (!this.layoutSystem?.findLeaf(viewportId)) {
             console.error(
-                `Cannot create ActiveView: Viewport ${viewportId} not found.`,
+                `${F.fcYellow('CameraSystem')}: Cannot create ActiveView: Viewport ${viewportId} not found.`,
             );
             return null;
         }
         if (!this.cameraInstances.has(cameraId)) {
             console.error(
-                `Cannot create ActiveView: Camera ${cameraId} not found.`,
+                `${F.fcYellow('CameraSystem')}: Cannot create ActiveView: Camera ${cameraId} not found.`,
             );
             return null;
         }
         if (!this.viewConfigurations.has(viewConfigId)) {
             console.error(
-                `Cannot create ActiveView: ViewConfig ${viewConfigId} not found.`,
+                `${F.fcYellow('CameraSystem')}: Cannot create ActiveView: ViewConfig ${viewConfigId} not found.`,
             );
             return null;
         }
@@ -282,12 +328,13 @@ export class CameraSystem extends System {
         this.layoutSystem.assignViewToLeaf(viewportId, id);
 
         // Set initial focus if nothing else is focused
-        if (this._focusedActiveViewId === null) {
-            this.setFocus(id);
-        }
+        // if (this._focusedActiveViewId === null) {
+        //     // this.setFocus(id);
+        //     this.events.emit(AppAction.FOCUS_SET_FOCUS, { viewportId });
+        // }
 
         console.log(
-            `CameraSystem: Created ActiveView ${id} linking Viewport:${viewportId}, Camera:${cameraId}, Config:${viewConfigId}`,
+            `${F.fcYellow('CameraSystem')}: Created ActiveView ${id} linking Viewport:${viewportId}, Camera:${cameraId}, Config:${viewConfigId}`,
         );
         return activeView;
     }
@@ -300,34 +347,17 @@ export class CameraSystem extends System {
             // Unassign from viewport leaf
             this.layoutSystem?.assignViewToLeaf(activeView.viewportId, null);
             this._activeViews.delete(id);
-            if (this._focusedActiveViewId === id) {
-                this._focusedActiveViewId = null; // Or set focus to another view
-            }
+            // if (this._focusedActiveViewId === id) {
+            //     this._focusedActiveViewId = null; // Or set focus to another view
+            // }
         }
     }
 
-    get focusedActiveViewId(): string | null {
-        return this._focusedActiveViewId;
-    }
-
-    // --- Focus Management ---
-    setFocus(activeViewId: string | null): void {
-        if (activeViewId && !this._activeViews.has(activeViewId)) {
-            console.warn(
-                `CameraSystem: Cannot set focus to non-existent ActiveView ${activeViewId}`,
-            );
-            return;
-        }
-        this._focusedActiveViewId = activeViewId;
-        console.log(`CameraSystem: Focus set to ActiveView ${activeViewId}`);
-        // TODO: Emit focus change event? Trigger pointer lock request/release?
-    }
-
-    getFocusedActiveView(): ActiveView | undefined {
-        return this._focusedActiveViewId
-            ? this._activeViews.get(this._focusedActiveViewId)
-            : undefined;
-    }
+    // getFocusedActiveView(): ActiveView | undefined {
+    //     return this._focusedActiveViewId
+    //         ? this._activeViews.get(this._focusedActiveViewId)
+    //         : undefined;
+    // }
 
     // Register a camera to be managed by the system
     // addCamera(
@@ -408,7 +438,7 @@ export class CameraSystem extends System {
 
             if (!viewConfig || !camera) {
                 console.warn(
-                    `CameraSystem: Missing config or camera for ActiveView ${activeView.id}`,
+                    `${F.fcYellow('CameraSystem')}: Missing config or camera for ActiveView ${activeView.id}`,
                 );
                 return; // Skip this view if data is missing
             }
@@ -576,7 +606,8 @@ export class CameraSystem extends System {
 
     destroy() {
         // Clean up event listener
-        appEventManager.off(AppAction.LAYOUT_UPDATED, this.handleLayoutUpdated);
+        // @TODO destroy handlers
+        // appEventManager.off(AppAction.LAYOUT_UPDATED, this.handleLayoutUpdated);
         this.clear();
     }
 
@@ -584,9 +615,11 @@ export class CameraSystem extends System {
      * clear down views, cameras, and active views.
      */
     clear(): void {
-        console.log('CameraSystem: Removing stuff.');
+        console.log(`${F.fcYellow('CameraSystem')}: Removing stuff.`);
         [...this._activeViews.keys()].reverse().forEach((avId) => {
-            console.log(`destroying active view ${avId}`);
+            console.log(
+                `${F.fcYellow('CameraSystem')}: destroying active view ${avId}`,
+            );
             this.destroyActiveView(avId);
         });
 
@@ -597,13 +630,15 @@ export class CameraSystem extends System {
             });
 
         [...this.cameraInstances.keys()].reverse().forEach((cameraId) => {
-            console.log(`destroying camera_id ${cameraId}`);
+            console.log(
+                `${F.fcYellow('CameraSystem')}: destroying camera_id ${cameraId}`,
+            );
             this.destroyCameraInstance(cameraId);
         });
         this._focusedActiveViewId = null;
         this.setCollisionWorld(null); // Clear collision world reference
         console.log(
-            'CameraSystem: Cleared all camera instances and view configurations.',
+            `${F.fcYellow('CameraSystem')}: Cleared all camera instances and view configurations.`,
         );
     }
 }

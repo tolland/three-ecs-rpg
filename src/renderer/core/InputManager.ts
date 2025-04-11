@@ -121,8 +121,8 @@ export class InputManager {
         const inputAction = this.keyToActionMap.get(event.code);
         const appAction = this.keyToAppActionMap.get(event.code);
 
-        console.log(`Key pressed: ${event.code}, Action: ${inputAction || appAction}`); // Debug
-        console.log(serializeForConsole(Serializer.serialize(event)));
+        // console.log(`Key pressed: ${event.code}, Action: ${inputAction || appAction}`); // Debug
+        // console.log(serializeForConsole(Serializer.serialize(event)));
 
         if (inputAction) {
             this.actionStates.set(inputAction, true);

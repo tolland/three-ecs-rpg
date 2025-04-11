@@ -6,9 +6,9 @@ import { simulationConfigManager, SimulationConfigManager } from '@core/Simulati
 import * as THREE from 'three';
 import { physicsConfigManager } from '@renderer/core';
 import { CameraSystem } from '@systems/CameraSystem';
-import { ActiveView } from '@core/ActiveView';
 import { ViewConfiguration } from '@core/ViewConfiguration';
 import { CameraInputHandler, FPSCameraHandler } from '@core/CameraInputHandler';
+import { ActiveView } from '@core/types/activeView';
 
 /**
  * This implements a physics-free camera control system.

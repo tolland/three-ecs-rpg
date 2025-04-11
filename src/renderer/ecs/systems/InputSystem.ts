@@ -6,6 +6,8 @@ import {
 } from '@ecs/components';
 import { InputManager } from '@core/InputManager';
 import { InputAction } from '@shared/core/InputActions';
+import { serializeForConsole } from '@shared/core/utils';
+import { Serializer } from '@shared/serialization/Serializer';
 
 export class InputSystem extends System {
     // Remove internal key/mouse state, keep only manager reference
@@ -41,6 +43,11 @@ export class InputSystem extends System {
 
         // Assume only one player-controlled entity at a time
         if (controlledEntities.length > 0) {
+
+
+            if (Math.random() < 0.05)
+                console.log(serializeForConsole(Serializer.serialize(controlledEntities.length)));
+
             const entity = controlledEntities[0];
             const input = this.world.getComponent(
                 entity,

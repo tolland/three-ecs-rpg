@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { Entity } from '@ecs/Entity';
 import { CameraMode } from '@components/CameraTargetComponent';
-import { ViewConfigID } from '@core/ViewportLayout';
+import { ViewConfigID } from '@core/types/viewport';
 
 /**
  * (Data Object):

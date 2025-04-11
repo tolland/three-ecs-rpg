@@ -1,23 +1,16 @@
 // src/renderer/core/ActiveView.ts
-import { CameraID, generateId, ViewConfigID, ViewportID } from './ViewportLayout';
+import { generateId } from './ViewportLayout';
 import { ViewportLayoutSystem } from '@renderer/ecs/systems/ViewportLayoutSystem';
 import { LayoutEvent } from '@shared/ipc/ips.types';
+import { CameraID, ViewConfigID, ViewportID } from '@core/types/viewport';
+import { ActiveView, ActiveViewId } from '@core/types/activeView';
 
-/**
- * (Linking Object): Connects Layout, Camera, and Config. Managed by CameraSystem.
- */
-export interface ActiveView {
-    id: string; // Unique ID for this active view instance
-    viewportId: ViewportID;
-    cameraId: CameraID;
-    viewConfigId: ViewConfigID;
-}
 
 /**
  * Manages the ActiveView instances and handles layout change events
  */
 export class ActiveViewManager {
-    private views: Map<string, ActiveView> = new Map();
+    private views: Map<ActiveViewId, ActiveView> = new Map();
     private viewsByViewport: Map<ViewportID, ActiveView> = new Map();
 
     constructor(private layoutSystem: ViewportLayoutSystem) {

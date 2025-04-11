@@ -58,8 +58,9 @@ manage_branch() {
                     echo "✅ Successfully merged $OLD_BRANCH into $MAIN_BRANCH_NAME"
 
                     # Delete the old branch after successful merge
+                    # Using -d instead of -D to ensure we only delete if fully merged
                     echo "Deleting old branch $OLD_BRANCH..."
-                    git branch -D $OLD_BRANCH
+                    git branch -d $OLD_BRANCH
                     echo "✅ Deleted old branch $OLD_BRANCH"
                 else
                     echo "❌ Failed to merge. Please resolve conflicts manually."
@@ -94,8 +95,9 @@ manage_branch() {
                 echo "✅ Successfully merged $OLD_BRANCH into $MAIN_BRANCH_NAME"
 
                 # Delete the old branch after successful merge
+                # Using -d instead of -D to ensure we only delete if fully merged
                 echo "Deleting old branch $OLD_BRANCH..."
-                git branch -D $OLD_BRANCH
+                git branch -d $OLD_BRANCH
                 echo "✅ Deleted old branch $OLD_BRANCH"
             else
                 echo "❌ Failed to merge. Please resolve conflicts manually."
