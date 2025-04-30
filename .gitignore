@@ -5,7 +5,7 @@ node_modules/
 !./assets/config
 /src/assets/*.glb
 /release
-
+*.notes
 
 # === Python ===
 __pycache__/

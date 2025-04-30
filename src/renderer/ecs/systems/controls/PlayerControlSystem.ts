@@ -98,15 +98,21 @@ export class PlayerControlSystem extends System {
                 velComp: VelocityComponent,
                 stateComp: MovementStateComponent,
             });
+            // some entities won't have look Dir component
             if (
                 !collider ||
                 !forceComp ||
                 !inputController! ||
-                !lookDir ||
                 !rotationComp ||
                 !velComp
             )
-                throw new Error('Missing required components');
+                throw new Error(`Missing required components: ${[
+                    !collider && 'ColliderComponent',
+                    !forceComp && 'ForceAccumulatorComponent',
+                    !inputController && 'InputControllableComponent',
+                    !rotationComp && 'RotationComponent',
+                    !velComp && 'VelocityComponent',
+                ].filter(Boolean).join(', ')}`);
             // if (Math.random() < 0.05)
             //     console.log(serializeForConsole(Serializer.serialize(input)));
 
@@ -115,6 +121,7 @@ export class PlayerControlSystem extends System {
                 deltaTime,
                 inputController,
                 lookDir,
+                rotationComp,
             );
 
             if (rotationInput)
@@ -129,7 +136,7 @@ export class PlayerControlSystem extends System {
             const movementInput = this.movementInputHandler?.getMovementInput(
                 deltaTime,
                 inputController,
-                lookDir,
+                rotationComp,
             );
 
             const thrustForce = new THREE.Vector3();

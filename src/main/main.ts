@@ -6,15 +6,11 @@ import log from 'electron-log';
 import { rendererAPI } from '@main/rendererAPI';
 import { AppAction } from '@shared/core';
 import { createApplicationMenu } from '@main/app_menu';
+import { installThreeEcsInspector } from './installInspector';
+import { setupExtensionDevTools, installDevToolsExtension } from './extensionReloader';
 
 log.transports.file.level = 'debug';
 log.info('Application starting...');
-
-// Custom extension ID for Three.js DevTools
-const THREEJS_DEVTOOLS = 'jechbjkglifdaldbdbigibihfaclnkbo';
-
-// Replace console.log with log
-// log.error('Error:', "orijgoerjgr");
 
 // Optional: Disable hardware acceleration if needed
 // app.disableHardwareAcceleration();
@@ -68,6 +64,17 @@ console.log(
 //     }
 // }
 
+async function installExtensions() {
+    try {
+        // Install Three.js ECS Inspector
+        await installThreeEcsInspector();
+        log.info('Three.js ECS Inspector extension installed successfully');
+
+    } catch (error) {
+        log.error('Failed to install Three.js ECS Inspector extension:', error);
+    }
+}
+
 function createWindow() {
     const primaryDisplay = screen.getPrimaryDisplay();
     const { width, height } = primaryDisplay.workAreaSize;
@@ -81,6 +88,8 @@ function createWindow() {
             contextIsolation: true,
             nodeIntegration: false,
             devTools: !app.isPackaged,
+            // @TODO need to fix this
+            webSecurity: false,
         },
         title: 'Three.js ECS RPG',
     });
@@ -140,21 +149,8 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
-    // try {
-    //     const name = await installExtension(THREEJS_DEVTOOLS);
-    //     console.log(`Added Extension: ${name}`);
-    // } catch (err) {
-    //     console.log('An error occurred: ', err);
-    // }
-
-    // const extensionPath = path.join(__dirname, '../renderer/assets/extensions/jechbjkglifdaldbdbigibihfaclnkbo');
-    //
-    // // Load the extension with options to ignore certain permissions
-    // await session.defaultSession.loadExtension(extensionPath, {
-    //     allowFileAccess: true,
-    //     // This is where you can modify the manifest before loading
-    //     // This is optional and might not be necessary for all Electron versions
-    // });
+    // Install extensions
+    await installExtensions();
 
     createWindow();
 
@@ -168,7 +164,8 @@ app.whenReady().then(async () => {
     if (mainWindow) {
         mainWindow.webContents.openDevTools();
 
-        // In main process
+        // In main process - this was an attempt to overcome the requirement
+        // for user interaction to get pointerlock i think???
         mainWindow.webContents.sendInputEvent({
             type: 'mouseDown',
             x: 100,
@@ -183,6 +180,12 @@ app.whenReady().then(async () => {
             button: 'left',
             clickCount: 1,
         });
+
+        // Setup extension development tools
+        if (process.env.NODE_ENV !== 'production') {
+            setupExtensionDevTools(mainWindow);
+            log.info('Extension development tools set up');
+        }
     }
 
     if (!mainWindow) {

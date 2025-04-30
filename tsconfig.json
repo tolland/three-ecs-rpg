@@ -2,6 +2,11 @@
   "extends": "./tsconfig.base.json",
   "include": ["src/**/*"], // Include everything for checks
   // No "outDir" or specific "module" here, just for type checking
+  "exclude": [
+    "node_modules",
+    "dist",
+    "release"
+  ],
   "compilerOptions": {
     "noEmit": true, // Important: This config shouldn't output files itself
     "target": "ES2018",

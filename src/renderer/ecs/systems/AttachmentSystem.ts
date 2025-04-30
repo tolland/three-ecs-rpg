@@ -34,7 +34,8 @@ export class AttachmentSystem extends System {
                 RenderableComponent,
             )!;
 
-            const childObject = renderableComp.object3D; // The object we want to attach
+            // The object we want to attach
+            const childObject = renderableComp.object3D;
 
             // Only process if not already attached
             if (attachComp.isAttached) continue;

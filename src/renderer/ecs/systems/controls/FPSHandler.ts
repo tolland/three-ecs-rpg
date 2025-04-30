@@ -40,24 +40,6 @@ export class FPSInputHandler extends InputManagerBasedHandler {
     ): RotationInput {
         const xScale = this.invertX ? 1 : -1;
         const yScale = this.invertY ? 1 : -1;
-
-        const euler = new THREE.Euler(0, 0, 0, 'YXZ');
-        euler.setFromQuaternion(lookDir.value);
-        euler.y -= input.mouseDelta.x;
-        euler.x -= input.mouseDelta.y;
-        euler.x = Math.max(
-            -Math.PI / 2 + 0.1,
-            Math.min(Math.PI / 2 - 0.1, euler.x),
-        ); // Clamp pitch
-        lookDir.value.setFromEuler(euler);
-        // } else if (cameraTarget) {
-        //     cameraTarget.orbitAngles.x -= mouseDeltaX; // Azimuth
-        //     cameraTarget.orbitAngles.y -= mouseDeltaY; // Pitch
-        //     cameraTarget.orbitAngles.y = Math.max(
-        //         cameraTarget.minPitch,
-        //         Math.min(cameraTarget.maxPitch, cameraTarget.orbitAngles.y),
-        //     ); // Clamp pitch
-        // }
         return {
             yaw: input.mouseDelta.x * this.lookSensitivity * xScale,
             pitch: input.mouseDelta.y * this.lookSensitivity * yScale,
@@ -71,6 +53,25 @@ export class FPSInputHandler extends InputManagerBasedHandler {
         lookDir: LookDirectionComponent,
         rotComp: RotationComponent,
     ): void {
+
+        // const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+        // euler.setFromQuaternion(lookDir.value);
+        // euler.y -= input.mouseDelta.x;
+        // euler.x -= input.mouseDelta.y;
+        // euler.x = Math.max(
+        //     -Math.PI / 2 + 0.1,
+        //     Math.min(Math.PI / 2 - 0.1, euler.x),
+        // ); // Clamp pitch
+        // lookDir.value.setFromEuler(euler);
+        // } else if (cameraTarget) {
+        //     cameraTarget.orbitAngles.x -= mouseDeltaX; // Azimuth
+        //     cameraTarget.orbitAngles.y -= mouseDeltaY; // Pitch
+        //     cameraTarget.orbitAngles.y = Math.max(
+        //         cameraTarget.minPitch,
+        //         Math.min(cameraTarget.maxPitch, cameraTarget.orbitAngles.y),
+        //     ); // Clamp pitch
+        // }
+
         // rotComp.value.slerp(
         //     new THREE.Quaternion().setFromUnitVectors(
         //         new THREE.Vector3(0, 0, -1),
@@ -83,13 +84,13 @@ export class FPSInputHandler extends InputManagerBasedHandler {
     getMovementInput(
         deltaTime: number,
         input: InputControllableComponent,
-        lookDir: LookDirectionComponent,
+        rotComp: RotationComponent,
     ): MovementInput {
         const forwardVector = new THREE.Vector3(0, 0, -1).applyQuaternion(
-            lookDir.value,
+            rotComp.value,
         );
         const rightVector = new THREE.Vector3(1, 0, 0).applyQuaternion(
-            lookDir.value,
+            rotComp.value,
         );
         const worldMoveDirection = new THREE.Vector3();
 

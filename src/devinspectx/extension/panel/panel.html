@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Three.js ECS Inspector</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <div class="toolbar">
+    <div class="logo">Three.js ECS Inspector</div>
+    <div class="actions">
+      <button id="refresh-btn" title="Refresh">↻</button>
+      <button id="capture-btn" title="Capture Snapshot">📷</button>
+      <button id="settings-btn" title="Settings">⚙️</button>
+    </div>
+  </div>
+
+  <div class="main-container">
+    <div class="sidebar">
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="scene">Scene</button>
+        <button class="tab-btn" data-tab="entities">Entities</button>
+        <button class="tab-btn" data-tab="systems">Systems</button>
+        <button class="tab-btn" data-tab="performance">Performance</button>
+      </div>
+      
+      <div class="search-container">
+        <input type="text" id="search-input" placeholder="Search...">
+        <button id="search-btn">🔍</button>
+      </div>
+      
+      <!-- Tree view containers -->
+      <div class="tree-container active" id="scene-tree"></div>
+      <div class="tree-container" id="entity-tree"></div>
+      <div class="tree-container" id="system-tree"></div>
+      <div class="tree-container" id="performance-tree"></div>
+    </div>
+
+    <div class="details-panel">
+      <div class="details-header">
+        <h3 id="details-title">Select an item to inspect</h3>
+        <div class="details-actions">
+          <button id="edit-btn" title="Edit">✏️</button>
+          <button id="locate-btn" title="Locate in Scene">👁️</button>
+        </div>
+      </div>
+      
+      <div class="details-content" id="details-container">
+        <div class="placeholder">Select an item from the tree view</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div id="status-message">Ready</div>
+    <div class="status-metrics">
+      <span id="fps">FPS: --</span>
+      <span id="objects">Objects: --</span>
+      <span id="entities">Entities: --</span>
+      <span id="systems">Systems: --</span>
+    </div>
+  </div>
+
+  <!-- Templates for different detail views -->
+  <template id="object-details-template">
+    <div class="details-section">
+      <h4>Basic</h4>
+      <div class="property-list" id="basic-properties"></div>
+    </div>
+    <div class="details-section">
+      <h4>Transform</h4>
+      <div class="property-list" id="transform-properties"></div>
+    </div>
+    <div class="details-section">
+      <h4>Rendering</h4>
+      <div class="property-list" id="rendering-properties"></div>
+    </div>
+    <div class="details-section">
+      <h4>Custom</h4>
+      <div class="property-list" id="custom-properties"></div>
+    </div>
+  </template>
+
+  <template id="entity-details-template">
+    <div class="details-section">
+      <h4>Entity Info</h4>
+      <div class="property-list" id="entity-properties"></div>
+    </div>
+    <div class="details-section">
+      <h4>Components</h4>
+      <div class="component-list" id="component-list"></div>
+    </div>
+  </template>
+
+  <template id="component-details-template">
+    <div class="details-section">
+      <h4 id="component-name">Component Name</h4>
+      <div class="property-list" id="component-properties"></div>
+    </div>
+  </template>
+
+  <template id="system-details-template">
+    <div class="details-section">
+      <h4>System Info</h4>
+      <div class="property-list" id="system-properties"></div>
+    </div>
+    <div class="details-section">
+      <h4>Performance</h4>
+      <div class="performance-chart">
+        <canvas id="system-performance-chart"></canvas>
+      </div>
+    </div>
+  </template>
+
+  <!-- Scripts -->
+  <script src="panel.js"></script>
+</body>
+</html>

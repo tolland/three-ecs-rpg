@@ -1,5 +1,20 @@
 // src/renderer/core/AudioManager.ts
 import * as THREE from 'three';
+import { CameraSystemLoggingConfig } from '@ecs/systems';
+
+export const AudioManagerLoggingConfig = {
+    /** Main toggle for enabling/disable all AudioManager logging */
+    enabled: false,
+    logConstructors: false,
+    logFocusedChanged: false,
+    logEnableDisable: false,
+    /** Toggle for method invocation logging */
+    logMethods: false,
+    /** Style for manager names in logs */
+    styleFocusChange: (name: string) => `\x1b[36m${name}\x1b[0m`, // Cyan color
+    /** Style for lifecycle events */
+    styleLifecycle: (event: string) => `\x1b[33m${event}\x1b[0m`, // Yellow color
+};
 
 export class AudioManager {
     private audioLoader = new THREE.AudioLoader();
@@ -10,7 +25,9 @@ export class AudioManager {
 
     constructor() {
         // Initialize the listener but don't attach it yet
-        console.log('AudioManager initialized.');
+        if (!AudioManagerLoggingConfig.enabled || !CameraSystemLoggingConfig.logConstructors) {
+            console.log('AudioManager initialized.');
+        }
 
         try {
             this.listener = new THREE.AudioListener();
@@ -40,7 +57,9 @@ export class AudioManager {
         if (this._enabled) return;
 
         try {
-            console.log('Enabling audio system...');
+            if (!AudioManagerLoggingConfig.enabled || !AudioManagerLoggingConfig.logEnableDisable) {
+                console.log('Enabling audio system...');
+            }
             this.listener = new THREE.AudioListener();
 
             // Monkey patch the updateMatrixWorld to be safe
@@ -58,7 +77,9 @@ export class AudioManager {
             };
 
             this._enabled = true;
-            console.log('Audio system enabled');
+            if (!AudioManagerLoggingConfig.enabled || !AudioManagerLoggingConfig.logEnableDisable) {
+                console.log('Audio system enabled');
+            }
 
             // Resume context if needed
             if (this.listener.context && this.listener.context.state !== 'running') {
@@ -80,7 +101,9 @@ export class AudioManager {
         // Null out the listener
         this.listener = null;
         this._enabled = false;
-        console.log('Audio system disabled');
+        if (!AudioManagerLoggingConfig.enabled || !AudioManagerLoggingConfig.logEnableDisable) {
+            console.log('Audio system disabled');
+        }
     }
 
     isEnabled() {

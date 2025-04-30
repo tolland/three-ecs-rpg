@@ -29,7 +29,23 @@ import {
     ViewportID,
 } from '@renderer/core/types/viewport';
 import { serializeForConsole } from '@shared/core/utils';
-import { LogManager } from '@renderer/utils/ManagerLogger';
+import { LogManager, ManagerLoggingConfig } from '@renderer/utils/ManagerLogger';
+
+
+export const CameraSystemLoggingConfig = {
+    /** Main toggle for enabling/disable all CameraSystem logging */
+    enabled: false,
+    /** Toggle for constructor logging */
+    logConstructors: true,
+    /** Toggle for constructor logging */
+    logFocusedChanged: false,
+    /** Toggle for method invocation logging */
+    logMethods: false,
+    /** Style for manager names in logs */
+    styleFocusChange: (name: string) => `\x1b[36m${name}\x1b[0m`, // Cyan color
+    /** Style for lifecycle events */
+    styleLifecycle: (event: string) => `\x1b[33m${event}\x1b[0m`, // Yellow color
+};
 
 /**
  *
@@ -82,9 +98,12 @@ export class CameraSystem extends System {
         super(world);
         // Find collision system to get Octree? Or require Octree in constructor?
         // Let's assume we set it via a method for now.
-        console.log(
-            `${F.fcYellow('CameraSystem')}: Initialized - will attach AudioListener when ready`,
-        );
+        if (!CameraSystemLoggingConfig.enabled || !CameraSystemLoggingConfig.logConstructors) {
+            console.log(
+                `${F.fcYellow('CameraSystem')}: Initialized - will attach AudioListener when ready`,
+            );
+        }
+
         this.registerListeners();
     }
 
@@ -104,9 +123,11 @@ export class CameraSystem extends System {
         activeViewId: ActiveViewId | null;
         oldActiveViewId: ActiveViewId | null;
     }) {
-        console.log(
-            `${F.fcYellow('CameraSystem')}: FOCUS_CHANGED event changed to ActiveView ${payload.activeViewId}  viewportId: ${payload.viewportId}  oldActiveViewId: ${payload.oldActiveViewId}`,
-        );
+        if (!CameraSystemLoggingConfig.enabled || !CameraSystemLoggingConfig.logFocusedChanged) {
+            console.log(
+                `${F.fcYellow('CameraSystem')}: FOCUS_CHANGED event changed to ActiveView ${payload.activeViewId}  viewportId: ${payload.viewportId}  oldActiveViewId: ${payload.oldActiveViewId}`,
+            );
+        }
 
         if (payload.activeViewId) {
             this._focusedActiveViewId = payload.activeViewId

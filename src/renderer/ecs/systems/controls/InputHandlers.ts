@@ -2,7 +2,9 @@ import * as THREE from 'three';
 import {
     ForceAccumulatorComponent,
     InputControllableComponent,
-    LookDirectionComponent, RotationComponent, VelocityComponent,
+    LookDirectionComponent,
+    RotationComponent,
+    VelocityComponent,
 } from '@ecs/components';
 import { PlayerPhysicsConfig } from '@renderer/core';
 
@@ -25,7 +27,7 @@ export interface MovementInputHandler {
     getMovementInput(
         deltaTime: number,
         input: InputControllableComponent,
-        lookDir: LookDirectionComponent,
+        rotComp: RotationComponent | undefined,
     ): MovementInput;
 }
 
@@ -33,8 +35,8 @@ export interface MovementOutputHandler {
     applyMovement(
         deltaTime: number,
         movementInput: MovementInput,
-        lookDir: LookDirectionComponent,
-        rotComp: RotationComponent,
+        lookDir: LookDirectionComponent | undefined,
+        rotComp: RotationComponent | undefined,
         velComp: VelocityComponent,
         forceComp: ForceAccumulatorComponent,
         thrustForce: THREE.Vector3,
@@ -47,7 +49,8 @@ export interface RotationInputHandler {
     getRotationInput(
         deltaTime: number,
         input: InputControllableComponent,
-        lookDir: LookDirectionComponent,
+        lookDir: LookDirectionComponent | undefined,
+        rotComp: RotationComponent,
     ): RotationInput;
 }
 
@@ -55,7 +58,7 @@ export interface RotationOutputHandler {
     applyRotation(
         deltaTime: number,
         rotationInput: RotationInput,
-        lookDir: LookDirectionComponent,
+        lookDir: LookDirectionComponent | undefined,
         rotComp: RotationComponent,
     ): void;
 }
@@ -71,14 +74,14 @@ export abstract class InputManagerBasedHandler
     abstract getMovementInput(
         deltaTime: number,
         input: InputControllableComponent,
-        lookDir: LookDirectionComponent,
+        rotComp: RotationComponent | undefined,
     ): MovementInput;
 
     abstract applyMovement(
         deltaTime: number,
         movementInput: MovementInput,
         lookDir: LookDirectionComponent,
-        rotComp: RotationComponent,
+        rotComp: RotationComponent | undefined,
         velComp: VelocityComponent,
         forceComp: ForceAccumulatorComponent,
         thrustForce: THREE.Vector3,
@@ -89,13 +92,14 @@ export abstract class InputManagerBasedHandler
     abstract getRotationInput(
         deltaTime: number,
         input: InputControllableComponent,
-        lookDir: LookDirectionComponent,
+        lookDir: LookDirectionComponent | undefined,
+        rotComp: RotationComponent,
     ): RotationInput;
 
     abstract applyRotation(
         deltaTime: number,
         rotationInput: RotationInput,
-        lookDir: LookDirectionComponent,
+        lookDir: LookDirectionComponent | undefined,
         rotComp: RotationComponent,
     ): void;
 }

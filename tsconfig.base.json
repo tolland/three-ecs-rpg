@@ -46,9 +46,4 @@
       ]
     }
   },
-  "exclude": [
-    "node_modules",
-    "dist",
-    "release"
-  ]
 }

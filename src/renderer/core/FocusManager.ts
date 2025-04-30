@@ -19,6 +19,21 @@ import { serializeForConsole } from '@shared/core/utils';
 import { LogManager } from '@renderer/utils/ManagerLogger';
 import { ViewConfiguration } from '@core/ViewConfiguration';
 
+
+export const FocusManagerLoggingConfig = {
+    /** Main toggle for enabling/disable all AudioManager logging */
+    enabled: false,
+    logConstructors: false,
+    logFocusedChanged: false,
+    logEnableDisable: false,
+    /** Toggle for method invocation logging */
+    logMethods: false,
+    /** Style for manager names in logs */
+    styleFocusChange: (name: string) => `\x1b[36m${name}\x1b[0m`, // Cyan color
+    /** Style for lifecycle events */
+    styleLifecycle: (event: string) => `\x1b[33m${event}\x1b[0m`, // Yellow color
+};
+
 @LogManager()
 @RegisterManager()
 export class FocusManager implements Manager {

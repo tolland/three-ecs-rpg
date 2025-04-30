@@ -28,6 +28,7 @@ import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { RenderLayers } from '@setup/sceneSetup';
 import { PlayerAssets, PlayerOptions, PlayerPrefabResult } from '@renderer/prefabs/types/playables';
 import { EyesComponent } from '@components/position/EyesComponent';
+import { DebugLookAtComponent } from '@components/debug/DebugLookAtComponent';
 
 
 /**
@@ -77,7 +78,7 @@ export function createPlayable(
         ),
     );
 
-    world.addComponent(playerEntity, new MassComponent(70)); // Example mass in kg
+    world.addComponent(playerEntity, new MassComponent(70));
     world.addComponent(playerEntity, new ForceAccumulatorComponent());
     world.addComponent(playerEntity, new MovementStateComponent('falling'));
 
@@ -122,6 +123,10 @@ export function createPlayable(
         playerEntity,
         new DebugPositionIndicatorComponent(0xff0000, 0.1),
     ); // Red position sphere
+    world.addComponent(
+        playerEntity,
+        new DebugLookAtComponent(),
+    );
 
     // Add AudioSource to Player
     world.addComponent(
@@ -178,7 +183,7 @@ export function createPlayable(
     });
 
     // Add ECS components for visuals
-    world.addComponent(playerEntity, new RenderableComponent(renderableRoot)); // Render the ROOT
+    world.addComponent(playerEntity, new RenderableComponent(renderableRoot));
     world.addComponent(
         playerEntity,
         new AnimatedModelComponent(playerModel, assets.soldierGltf.animations),

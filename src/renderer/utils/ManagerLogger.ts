@@ -5,7 +5,7 @@
  */
 export const ManagerLoggingConfig = {
     /** Main toggle for enabling/disable all manager logging */
-    enabled: true,
+    enabled: false,
     /** Toggle for constructor logging */
     logConstructors: true,
     /** Toggle for method invocation logging */

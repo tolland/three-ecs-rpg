@@ -5,12 +5,14 @@ import {
     ColliderComponent,
     DebugBoundingBoxVisualComponent,
     DebugColliderVisualComponent,
-    DebugPositionIndicatorComponent, LookDirectionComponent,
+    DebugPositionIndicatorComponent,
+    LookDirectionComponent,
     PositionComponent,
     RenderableComponent,
 } from '@ecs/components';
 import * as THREE from 'three';
 import { DebugLookAtComponent } from '@components/debug/DebugLookAtComponent';
+import { Formatting } from '@renderer/utils/formatting';
 
 export class DebugVisualsSystem extends System {
     private scene: THREE.Scene;
@@ -272,10 +274,27 @@ export class DebugVisualsSystem extends System {
                 DebugLookAtComponent,
             )!;
             const posComp = this.world.getComponent(entity, PositionComponent)!;
-            const lookDirComp = this.world.getComponent(entity, LookDirectionComponent)!;
+            const lookDirComp = this.world.getComponent(
+                entity,
+                LookDirectionComponent,
+            )!;
+            //console.dir(lookDirComp);
+
+            if (!this.debugVisualsGroup.getObjectById(debugComp.visual.id)) {
+                this.debugVisualsGroup.add(debugComp.visual);
+            }
 
             // --- Update Position ---
-            debugComp.visual.position.copy(posComp.value); // Place directly at the entity's logical position
+            debugComp.visual.position
+                .copy(posComp.value)
+                .add(new THREE.Vector3(0, 1.75, 0));
+            const direction = new THREE.Vector3(0, 0, 1);
+            // debugComp.visual.setDirection(
+            //     direction.applyQuaternion(lookDirComp.value),
+            // );
+            // console.log(
+            //     `debugComp setting position to ${Formatting.fVec3(posComp.value)} and direction to ${Formatting.fVec3(direction.applyQuaternion(lookDirComp.value))}`,
+            // );
         }
         // TODO: Handle removal
     }

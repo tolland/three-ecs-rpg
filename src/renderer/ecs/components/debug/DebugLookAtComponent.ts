@@ -8,8 +8,8 @@ export class DebugLookAtComponent extends Component {
     public color: THREE.ColorRepresentation = 0x00ff00;
 
     constructor(
-        direction: THREE.Vector3 = new THREE.Vector3(0, 0, -1),
-        length: number = 0.5,
+        direction: THREE.Vector3 = new THREE.Vector3(0, 0, 1),
+        length: number = 1,
         color: number = 0xffff00,
         headLength: number = 0.2 * length,
         headWidth: number = 0.2 * headLength,

@@ -83,6 +83,4 @@ export class InputSystem extends System {
             input.pointerLocked = this.inputManager.pointerLocked;
         }
     }
-
-    // No need for destroy method here unless InputSystem itself allocates resources
 }

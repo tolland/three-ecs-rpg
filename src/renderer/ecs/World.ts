@@ -11,6 +11,22 @@ import {
     EntityInfo,
 } from './types/World';
 import * as F from '@renderer/utils/chalkColors';
+import { CameraSystemLoggingConfig } from '@ecs/systems';
+import { AudioManagerLoggingConfig } from '@core/AudioManager';
+
+export const WorldLoggingConfig = {
+    /** Main toggle for enabling/disable all AudioManager logging */
+    enabled: false,
+    logConstructors: false,
+    logEntityCreate: false,
+    logEnableDisable: false,
+    /** Toggle for method invocation logging */
+    logMethods: false,
+    /** Style for manager names in logs */
+    styleFocusChange: (name: string) => `\x1b[36m${name}\x1b[0m`, // Cyan color
+    /** Style for lifecycle events */
+    styleLifecycle: (event: string) => `\x1b[33m${event}\x1b[0m`, // Yellow color
+};
 
 export class World {
     private entities: Map<
@@ -27,7 +43,12 @@ export class World {
         const entityId = this.nextEntityId++ as Entity;
         this.entities.set(entityId, new Map());
         // console.debug(`ECS: Created Entity ${entityId}`);
-        console.log(`${F.fcMagenta('World')}: Created entity ${entityId}}`);
+        if (
+            !WorldLoggingConfig.enabled ||
+            !WorldLoggingConfig.logEntityCreate
+        ) {
+            console.log(`${F.fcMagenta('World')}: Created entity ${entityId}}`);
+        }
         return entityId;
     }
 
@@ -127,12 +148,14 @@ export class World {
         try {
             return this._systems.map((system) => [
                 system.constructor.name,
-                Serializer.serializeToJSON(system,
-                    { mode: 'full', depth: 0, maxDepth: 1 }
-                ),
+                Serializer.serializeToJSON(system, {
+                    mode: 'full',
+                    depth: 0,
+                    maxDepth: 1,
+                }),
             ]);
         } catch (e) {
-            console.dir(this._systems);
+            // console.dir(this._systems);
             console.error(`Error stringifying systems`, e);
             // TDOO need strategy for passing error from renderer through
             // to the dbus ipc that doesn't require weird types
