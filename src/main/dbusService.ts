@@ -246,6 +246,10 @@ export async function setupDbusService(webContents: Electron.WebContents) {
             async SetLayout(layoutJson: string): Promise<boolean> {
                 return await invokeRenderer('layout:setState', { layoutJson }) as boolean;
             }
+
+            async SendAppAction(appAction: string) {
+                sendAppControl(appAction);
+            }
         }
 
         // Decorate methods for D-Bus introspection

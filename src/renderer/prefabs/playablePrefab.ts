@@ -1,6 +1,5 @@
 // src/renderer/prefabs/playerPrefab.ts
 import { World } from '@ecs/World';
-import { Entity } from '@ecs/Entity';
 import {
     AnimatedModelComponent,
     AttachmentTargetComponent,
@@ -13,39 +12,23 @@ import {
     ForceAccumulatorComponent,
     GravityAffectedComponent,
     InputControllableComponent,
+    LookDirectionComponent,
     MassComponent,
     MovementStateComponent,
     NameComponent,
     NeedsUpdateComponent,
-    PlayerControlledComponent,
+    PlayerControlComponent,
     PositionComponent,
     RenderableComponent,
     RotationComponent,
     VelocityComponent,
 } from '@ecs/components';
 import * as THREE from 'three';
-import { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { RenderLayers } from '@setup/sceneSetup';
+import { PlayerAssets, PlayerOptions, PlayerPrefabResult } from '@renderer/prefabs/types/playables';
+import { EyesComponent } from '@components/position/EyesComponent';
 
-// Interface for required assets
-export interface PlayerAssets {
-    soldierGltf: GLTF;
-}
-
-// Interface for creation options
-export interface PlayerOptions {
-    position: THREE.Vector3;
-    rotation?: THREE.Quaternion;
-    isControlled?: boolean; // Flag to indicate if the entity is controlled initially
-    cameraId?: string; // Optional camera ID for the CameraTargetComponent
-}
-
-// The result includes the entity ID and the main object to add to the scene
-export interface PlayerPrefabResult {
-    entity: Entity;
-    object3D: THREE.Object3D; // The root object for rendering
-}
 
 /**
  * Creates a playable entity with the specified assets and options.
@@ -99,20 +82,28 @@ export function createPlayable(
     world.addComponent(playerEntity, new MovementStateComponent('falling'));
 
     // Input, PlayerControlled, CameraTarget, Wind, NeedsUpdate, AttachmentTarget
-    world.addComponent(playerEntity, new InputControllableComponent());
-
     if (options.isControlled) {
-        world.addComponent(playerEntity, new PlayerControlledComponent());
+        world.addComponent(playerEntity, new PlayerControlComponent());
+    }
+    world.addComponent(playerEntity, new LookDirectionComponent());
+    world.addComponent(playerEntity, new EyesComponent(
+        new THREE.Vector3(0, 2, 0),
+    ));
+
+    if (options.isControllable) {
+        world.addComponent(playerEntity, new InputControllableComponent());
     }
 
     // Cameras
     world.addComponent(
         playerEntity,
-        new CameraTargetComponent(options.cameraId ?? 'main'),
-    ); // Use default settings initially
+        new CameraTargetComponent(),
+    );
     // world.addComponent(playerEntity, new WindAffectedComponent(1.0)); // If using wind
-    world.addComponent(playerEntity, new NeedsUpdateComponent()); // Needs initial sync
-    world.addComponent(playerEntity, new AttachmentTargetComponent()); // Can be attached to
+    // Needs initial sync
+    world.addComponent(playerEntity, new NeedsUpdateComponent());
+    // Can be attached to
+    world.addComponent(playerEntity, new AttachmentTargetComponent());
     world.addComponent(
         playerEntity,
         new NameComponent(`Playable_${playerEntity}`),
@@ -191,7 +182,7 @@ export function createPlayable(
     world.addComponent(
         playerEntity,
         new AnimatedModelComponent(playerModel, assets.soldierGltf.animations),
-    ); // Animate the CLONED model
+    );
 
     console.log(`Created Player Entity: ${playerEntity}`);
     return { entity: playerEntity, object3D: renderableRoot };

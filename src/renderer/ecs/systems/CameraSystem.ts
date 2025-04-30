@@ -4,9 +4,7 @@ import {
     createDefaultViewConfig,
     ViewConfiguration,
 } from '@core/ViewConfiguration';
-import {
-    generateId,
-} from '@core/ViewportLayout';
+import { generateId } from '@core/ViewportLayout';
 import { System } from '@ecs/System';
 import { World } from '@ecs/World';
 import {
@@ -19,14 +17,19 @@ import { RenderLayers } from '@setup/sceneSetup';
 import { ViewportLayoutSystem } from '@systems/ViewportLayoutSystem';
 import * as THREE from 'three';
 import { Serializer } from '@shared/serialization/Serializer';
-import { serializeForConsole } from '@renderer/utils/formatting';
 import { appEventManager, AppEventManager } from '@renderer/core';
 import { AppAction } from '@shared/core';
 import { LayoutEvent } from '@shared/ipc/ips.types';
-import { RegisterManager } from '@core/ManagerRegistry';
 import * as F from '@renderer/utils/chalkColors';
-import { CameraID, ViewConfigID, ViewportID } from '@renderer/core/types/viewport';
-import { ActiveView } from '@core/types/activeView';
+import {
+    ActiveView,
+    ActiveViewId,
+    CameraID,
+    ViewConfigID,
+    ViewportID,
+} from '@renderer/core/types/viewport';
+import { serializeForConsole } from '@shared/core/utils';
+import { LogManager } from '@renderer/utils/ManagerLogger';
 
 /**
  *
@@ -34,7 +37,7 @@ import { ActiveView } from '@core/types/activeView';
  *
  * Remove direct viewport/camera management from CameraSystem.
  */
-@RegisterManager()
+@LogManager()
 export class CameraSystem extends System {
     // Pools
     @Serializer.Serialize()
@@ -45,19 +48,22 @@ export class CameraSystem extends System {
         new Map();
 
     @Serializer.Serialize({ outputKey: 'activeViews' })
-    private _activeViews: Map<string, ActiveView> = new Map(); // Key: ActiveView ID
+    private _activeViews: Map<ActiveViewId, ActiveView> = new Map();
 
     // Dependencies
-    private layoutSystem: ViewportLayoutSystem | undefined; // Must be set after systems created
+    // Must be set after systems created
+    private layoutSystem: ViewportLayoutSystem | undefined;
+
     // Need access to world geometry for raycasting
     private collisionWorld: CollisionWorld | null = null;
 
     // // Focused View Tracking
-    // @Serializer.Serialize({ outputKey: 'focusedActiveViewId' })
-    // private _focusedActiveViewId: string | null = null;
+    @Serializer.Serialize({ outputKey: 'focusedActiveViewId' })
+    private _focusedActiveViewId: ActiveViewId | null = null;
 
     // @TODO implement world chunks
-    private chunks: Map<string, CollisionWorld> = new Map(); // Key: chunk key "x_z"
+    // Key: chunk key "x_z"
+    private chunks: Map<string, CollisionWorld> = new Map();
 
     // Reusable objects for calculations
     private spherical = new THREE.Spherical();
@@ -65,7 +71,7 @@ export class CameraSystem extends System {
     private idealCameraPosition = new THREE.Vector3();
     private targetLookAt = new THREE.Vector3();
     private raycaster = new THREE.Raycaster();
-    private listener: THREE.AudioListener;
+    private listener: THREE.AudioListener | null = null;
 
     // Inject Octree (or CollisionSystem)
     constructor(
@@ -76,10 +82,8 @@ export class CameraSystem extends System {
         super(world);
         // Find collision system to get Octree? Or require Octree in constructor?
         // Let's assume we set it via a method for now.
-        this.listener = new THREE.AudioListener();
-        audioManager.listener = this.listener; // Provide listener to the manager
         console.log(
-            `${F.fcYellow('CameraSystem')}: AudioListener created and assigned to AudioManager.`,
+            `${F.fcYellow('CameraSystem')}: Initialized - will attach AudioListener when ready`,
         );
         this.registerListeners();
     }
@@ -95,18 +99,33 @@ export class CameraSystem extends System {
         );
     }
 
-    private handleFocusChanged(payload: { activeViewId: string | null }) {
-        // this._focusedActiveViewId = payload.activeViewId;
+    private handleFocusChanged(payload: {
+        viewportId: ViewportID | null;
+        activeViewId: ActiveViewId | null;
+        oldActiveViewId: ActiveViewId | null;
+    }) {
         console.log(
-            `${F.fcYellow('CameraSystem')}: Focus changed to ActiveView ${payload.activeViewId}`,
+            `${F.fcYellow('CameraSystem')}: FOCUS_CHANGED event changed to ActiveView ${payload.activeViewId}  viewportId: ${payload.viewportId}  oldActiveViewId: ${payload.oldActiveViewId}`,
         );
 
         if (payload.activeViewId) {
+            this._focusedActiveViewId = payload.activeViewId
             const activeView = this._activeViews.get(payload.activeViewId);
             if (activeView) {
-                const camera = this.cameraInstances.get(activeView.cameraId);
-                if (camera) {
-                    this.updateAudioListener(camera);
+                const viewConfig = this.viewConfigurations.get(activeView.viewConfigId);
+                if(viewConfig) {
+                    const camera = this.cameraInstances.get(viewConfig.cameraId);
+                    if (camera) {
+                        // Make sure camera has valid state before updating audio listener
+                        if (camera.position &&
+                            camera.position.x !== null &&
+                            camera.position.y !== null &&
+                            camera.position.z !== null) {
+                            this.updateAudioListener(camera);
+                        } else {
+                            console.warn(`Cannot update audio listener: Camera ${viewConfig.cameraId} has invalid position`);
+                        }
+                    }
                 }
             }
         }
@@ -114,7 +133,7 @@ export class CameraSystem extends System {
 
     private handleLayoutUpdated(event: LayoutEvent): void {
         console.log(
-            `${F.fcYellow('CameraSystem')}: saw event with payload ${serializeForConsole(Serializer.serialize(event))}`,
+            `${F.fcYellow('CameraSystem')}: saw VIEWPORT_LAYOUT_UPDATED event with payload ${serializeForConsole(Serializer.serialize(event))}`,
         );
         switch (event.type) {
             case 'leaf-split':
@@ -130,8 +149,8 @@ export class CameraSystem extends System {
                 }
                 break;
             case 'view-assigned':
-                if (event.sourceNodeId && event.viewId) {
-                    const activeView = this.getActiveView(event.viewId);
+                if (event.sourceNodeId && event.activeViewId) {
+                    const activeView = this.getActiveView(event.activeViewId);
                     const leaf = this.layoutSystem?.findLeaf(
                         event.sourceNodeId,
                     );
@@ -140,7 +159,7 @@ export class CameraSystem extends System {
                         activeView.viewportId = event.sourceNodeId;
                     } else {
                         console.warn(
-                            `${F.fcYellow('CameraSystem')}: ActiveView ${event.viewId} not found.`,
+                            `${F.fcYellow('CameraSystem')}: ActiveView ${event.activeViewId} not found.`,
                         );
                     }
                 }
@@ -198,19 +217,27 @@ export class CameraSystem extends System {
         fov = 75,
         near = 0.1,
         far = 1000,
-    ): THREE.PerspectiveCamera | null {
+    ): THREE.PerspectiveCamera {
         if (this.cameraInstances.has(id)) {
             console.warn(
                 `${F.fcYellow('CameraSystem')}: Camera instance with ID ${id} already exists.`,
             );
             return this.cameraInstances.get(id)!;
         }
-        const camera = new THREE.PerspectiveCamera(fov, 1, near, far); // Aspect ratio set per-frame by RenderSystem
+
+        const camera = new THREE.PerspectiveCamera(fov, 1, near, far);
         camera.name = `ManagedCamera_${id}`;
-        camera.layers.enable(RenderLayers.RENDER_LAYER); // Set default layers
+
+        // Ensure valid initial transform
+        camera.position.set(0, 0, 0);
+        camera.quaternion.set(0, 0, 0, 1);
+        camera.updateMatrix();
+        camera.updateMatrixWorld(true);
+
+        camera.layers.enable(RenderLayers.RENDER_LAYER);
         camera.layers.enable(RenderLayers.PLAYER_LAYER);
         this.cameraInstances.set(id, camera);
-        this.scene.add(camera); // Add to scene immediately
+        this.scene.add(camera);
         console.log(
             `${F.fcYellow('CameraSystem')}: Created camera instance "${id}"`,
         );
@@ -232,6 +259,7 @@ export class CameraSystem extends System {
     createViewConfiguration(
         id: ViewConfigID,
         name: string,
+        cameraId: CameraID,
         initialState?: Partial<ViewConfiguration>,
     ): ViewConfiguration {
         if (this.viewConfigurations.has(id)) {
@@ -241,7 +269,7 @@ export class CameraSystem extends System {
             return this.viewConfigurations.get(id)!;
         }
         const newConfig = {
-            ...createDefaultViewConfig(id, name),
+            ...createDefaultViewConfig(id, name, cameraId),
             ...initialState,
         };
         this.viewConfigurations.set(id, newConfig);
@@ -275,11 +303,11 @@ export class CameraSystem extends System {
 
     // --- ActiveView Management ----
 
-    get activeViews(): Map<string, ActiveView> {
+    get activeViews(): Map<ActiveViewId, ActiveView> {
         return this._activeViews;
     }
 
-    getActiveView(id: string): ActiveView | undefined {
+    getActiveView(id: ActiveViewId): ActiveView | undefined {
         return this._activeViews.get(id);
     }
 
@@ -293,18 +321,14 @@ export class CameraSystem extends System {
 
     createActiveView(
         viewportId: ViewportID,
-        cameraId: CameraID,
         viewConfigId: ViewConfigID,
     ): ActiveView | null {
+        console.log(
+            `${F.fcYellow('CameraSystem')}: Begin Creating ActiveView linking Viewport:${viewportId}, Config:${viewConfigId}`,
+        );
         if (!this.layoutSystem?.findLeaf(viewportId)) {
             console.error(
                 `${F.fcYellow('CameraSystem')}: Cannot create ActiveView: Viewport ${viewportId} not found.`,
-            );
-            return null;
-        }
-        if (!this.cameraInstances.has(cameraId)) {
-            console.error(
-                `${F.fcYellow('CameraSystem')}: Cannot create ActiveView: Camera ${cameraId} not found.`,
             );
             return null;
         }
@@ -319,13 +343,12 @@ export class CameraSystem extends System {
         const activeView: ActiveView = {
             id,
             viewportId,
-            cameraId,
             viewConfigId,
         };
         this._activeViews.set(id, activeView);
 
         // Assign this view to the layout leaf
-        this.layoutSystem.assignViewToLeaf(viewportId, id);
+        this.layoutSystem.assignActiveViewToLeaf(viewportId, id);
 
         // Set initial focus if nothing else is focused
         // if (this._focusedActiveViewId === null) {
@@ -334,18 +357,21 @@ export class CameraSystem extends System {
         // }
 
         console.log(
-            `${F.fcYellow('CameraSystem')}: Created ActiveView ${id} linking Viewport:${viewportId}, Camera:${cameraId}, Config:${viewConfigId}`,
+            `${F.fcYellow('CameraSystem')}: Created ActiveView ${id} linking Viewport:${viewportId}, Config:${viewConfigId}`,
         );
         return activeView;
     }
 
-    destroyActiveView(id: string): void {
+    destroyActiveView(id: ActiveViewId): void {
         const activeView = this._activeViews.get(id);
         if (activeView) {
             console.dir(activeView);
             //  console.log(`${Serializer.serializeToJSON(activeView)}`);
             // Unassign from viewport leaf
-            this.layoutSystem?.assignViewToLeaf(activeView.viewportId, null);
+            this.layoutSystem?.assignActiveViewToLeaf(
+                activeView.viewportId,
+                null,
+            );
             this._activeViews.delete(id);
             // if (this._focusedActiveViewId === id) {
             //     this._focusedActiveViewId = null; // Or set focus to another view
@@ -434,11 +460,19 @@ export class CameraSystem extends System {
         this._activeViews.forEach((activeView) => {
             const viewConfig: ViewConfiguration | undefined =
                 this.viewConfigurations.get(activeView.viewConfigId);
-            const camera = this.cameraInstances.get(activeView.cameraId);
 
-            if (!viewConfig || !camera) {
+            if (!viewConfig) {
                 console.warn(
-                    `${F.fcYellow('CameraSystem')}: Missing config or camera for ActiveView ${activeView.id}`,
+                    `${F.fcYellow('CameraSystem')}: Missing config for ActiveView ${activeView.id}`,
+                );
+                return; // Skip this view if data is missing
+            }
+
+            const camera = this.cameraInstances.get(viewConfig.cameraId);
+
+            if (!camera) {
+                console.warn(
+                    `${F.fcYellow('CameraSystem')}: Missing camera for ActiveView ${activeView.id}`,
                 );
                 return; // Skip this view if data is missing
             }
@@ -595,13 +629,44 @@ export class CameraSystem extends System {
     }
 
     private updateAudioListener(activeCamera: THREE.Camera): void {
-        if (!this.listener.parent) {
-            activeCamera.add(this.listener);
-        } else if (this.listener.parent !== activeCamera) {
-            this.listener.removeFromParent();
-            activeCamera.add(this.listener);
+        // Safely get the listener from the audio manager
+        if (!audioManager.isEnabled() || !audioManager.listener) {
+            return;
         }
-        // Listener position/orientation is now automatically updated by being a child of the active camera
+
+        // Ensure we're using the same listener instance
+        this.listener = audioManager.listener;
+
+        // Skip attaching if camera is invalid
+        if (!activeCamera || !activeCamera.isCamera ||
+            !activeCamera.matrixWorld || !activeCamera.position ||
+            activeCamera.position.x === null) {
+            console.warn('CameraSystem: Cannot attach listener to invalid camera');
+            return;
+        }
+
+        try {
+            // Only attach if not already attached to this camera
+            if (!this.listener.parent || this.listener.parent !== activeCamera) {
+                if (this.listener.parent) {
+                    this.listener.removeFromParent();
+                }
+
+                // Force update camera matrix before attaching
+                activeCamera.updateMatrix();
+                activeCamera.updateMatrixWorld(true);
+
+                // Now attach the listener
+                activeCamera.add(this.listener);
+                console.log(`AudioListener attached to camera: ${activeCamera.name}`);
+            }
+        } catch (error) {
+            console.error('Error attaching audio listener to camera:', error);
+            console.error('Camera details:', {
+                name: activeCamera.name,
+                position: activeCamera.position?.toArray() || 'invalid'
+            });
+        }
     }
 
     destroy() {

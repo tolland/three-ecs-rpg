@@ -7,7 +7,7 @@ import {
     RenderableComponent,
 } from '@ecs/components';
 import * as THREE from 'three';
-import { DebugArrowComponent } from '@components/DebugArrowComponent';
+import { DebugArrowComponent } from '@components/debug/DebugArrowComponent';
 
 // Options for creating the arrow
 export interface DebugArrowOptions {

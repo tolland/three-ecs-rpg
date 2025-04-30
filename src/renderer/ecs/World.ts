@@ -18,18 +18,16 @@ export class World {
         Map<ComponentConstructor<Component>, ComponentInstance>
     > = new Map();
     private _systems: System[] = [];
-    private nextEntityId: Entity = 0;
+    private nextEntityId: number = 0;
     // Optional: Keep track of entities recently added/removed for system optimization
     // private entitiesToRemove: Set<Entity> = new Set();
 
     // --- Entity Management ---
     createEntity(): Entity {
-        const entityId = this.nextEntityId++;
+        const entityId = this.nextEntityId++ as Entity;
         this.entities.set(entityId, new Map());
         // console.debug(`ECS: Created Entity ${entityId}`);
-        console.log(
-            `${F.fcMagenta('World')}: Created entity ${entityId}}`,
-        );
+        console.log(`${F.fcMagenta('World')}: Created entity ${entityId}}`);
         return entityId;
     }
 
@@ -77,6 +75,23 @@ export class World {
         return components?.get(componentType) as T | undefined;
     }
 
+    getComponents<
+        T extends Record<string, ComponentConstructor<Component>>,
+        R extends { [K in keyof T]: InstanceType<T[K]> | undefined },
+    >(entity: Entity, componentMap: T): R {
+        const result = {} as R;
+
+        for (const [key, componentType] of Object.entries(componentMap)) {
+            // Add explicit type casting to help TypeScript understand the relationship
+            result[key as keyof R] = this.getComponent(
+                entity,
+                componentType,
+            ) as R[keyof R];
+        }
+
+        return result;
+    }
+
     hasComponent<T extends Component>(
         entity: Entity,
         componentType: ComponentConstructor<T>,
@@ -102,18 +117,19 @@ export class World {
         return this._systems;
     }
 
-    /**
+    /**]
      * This was created for the dbus ipc call. it is splitting the results
      * into {name, System} for easier rendering on client.
      */
     // *@TODO this is not returning pure json anymore
     getSystemsDataAsJson(): Array<[string, string]> | null {
         if (!this._systems) return null;
-
         try {
             return this._systems.map((system) => [
                 system.constructor.name,
-                Serializer.serializeToJSON(system),
+                Serializer.serializeToJSON(system,
+                    { mode: 'full', depth: 0, maxDepth: 1 }
+                ),
             ]);
         } catch (e) {
             console.dir(this._systems);
@@ -198,7 +214,7 @@ export class World {
         this.entities.forEach(
             (
                 components: Map<Function, ComponentInstance>,
-                entityId: number,
+                entityId: Entity,
             ) => {
                 const nameComp: NameComponent | undefined = this.getComponent(
                     entityId,
@@ -335,6 +351,7 @@ export class World {
             this.destroyEntity(entity);
         }
     }
+
     destroy() {
         this.clear();
     }

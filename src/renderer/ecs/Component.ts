@@ -8,13 +8,6 @@ export abstract class Component {
 
     }
     detach(): void {
-        
+
     }
 }
-
-// Example Component:
-// import { Component } from './Component';
-// import * as THREE from 'three';
-// export class PositionComponent extends Component {
-//     constructor(public position = new THREE.Vector3()) { super(); }
-// }

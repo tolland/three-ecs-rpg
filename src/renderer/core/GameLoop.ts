@@ -7,6 +7,7 @@ export class GameLoop {
     private clock = new Clock();
     private animationFrameId: number | null = null;
     private _isPaused = false;
+    private isFirstFrame = true;  // Track first frame
 
     private debugSlowMotion = true;
     private STEPS_PER_FRAME: number = 2;
@@ -17,10 +18,28 @@ export class GameLoop {
         private updateCallback?: () => void,
     ) {}
 
+
     start(): void {
         if (this.animationFrameId === null) {
-            this.clock.start();
-            this.tick();
+            try {
+                this.clock.start();
+
+                // Schedule the first tick, but don't run it immediately
+                // This avoids the audio matrix error during initialization
+                this.animationFrameId = requestAnimationFrame(() => {
+                    // This first tick won't update the world fully
+                    console.log('First game loop tick - skipping world update');
+
+                    // Reset the clock since we're not using the first delta
+                    this.clock.getDelta();
+
+                    // Schedule the real first tick for the next frame
+                    this.animationFrameId = requestAnimationFrame(this.tick);
+                });
+            } catch (error) {
+                console.error('Error starting game loop:', error);
+                throw error;
+            }
         }
     }
 
@@ -64,10 +83,9 @@ export class GameLoop {
         }
 
         if (!this._isPaused) {
-            // Use scaled and clamped delta
             this.world.update(effectiveDeltaTime);
         } else {
-            // deltaTime 0 seems to cause problems for audio
+            // deltaTime 0.000001 for paused state
             this.world.update(0.000001);
         }
 

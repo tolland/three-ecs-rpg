@@ -2,8 +2,8 @@ export type SerializationMode = 'full' | 'state' | 'summary';
 
 export type SerializationContext = {
     mode: SerializationMode;
-    depth: number;
-    maxDepth?: number;
+    depth: number; // Current depth of serialization
+    maxDepth?: number; // Maximum depth allowed for serialization
 };
 
 export type Replacer = (key: string, value: any) => any;
@@ -26,5 +26,3 @@ export type JsonValue = JsonPrimitive | JsonObject | JsonArray;
  * This object represents a JSON document that can be serialized. It is also useful for other types for serialization such as yaml as well.
  */
 export type JsonDocument = JsonObject | JsonArray;
-
-

@@ -1,3 +1,4 @@
+// src/renderer/debugTools.ts
 import { World } from '@ecs/World';
 import { ManagerRegistry } from '@core/ManagerRegistry';
 

@@ -29,9 +29,9 @@ export async function setupIpc(
     cameraSystem: CameraSystem, // Inject CameraSystem to set the collision world
     viewPortLayoutSystem: ViewportLayoutSystem,
 ): Promise<void> {
+
     // --- Register IPC Handlers ---
     if (window.electronIPC) {
-
 
         // --- Register IPC Handlers ---
         // messages from main process that need a reply
@@ -74,21 +74,13 @@ export async function setupIpc(
         // --- system debugging methods ---
         window.electronIPC.handleRequest('ecs:listSystems', () => {
             console.log(`IPC Handler: ecs:listSystems invoked`);
-            console.dir(world.getSystem(CollisionSystem));
             return world.getSystemsDataAsJson();
         });
 
         // --- system debugging methods ---
         window.electronIPC.handleRequest('ecs:getViewportLayout', () => {
             console.log(`IPC Handler: ecs:getViewportLayout invoked`);
-            // console.dir(world.getSystem(ViewportLayoutSystem));
-            // console.dir(
-            //     Serializer.serialize(
-            //         world.getSystem(ViewportLayoutSystem),
-            //     ),
-            // );
             const layout = world.getSystem(ViewportLayoutSystem);
-            //debugger;
             const serlializedLayout = Serializer.serializeToJSON(
                 layout,
             );
@@ -111,6 +103,7 @@ export async function setupIpc(
         window.electronIPC.handleRequest('layout:getState', () =>
             viewPortLayoutSystem.getFullLayoutState(),
         );
+
         window.electronIPC.handleRequest(
             'layout:setState',
             ({ layoutJson }) => {

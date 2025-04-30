@@ -114,5 +114,4 @@ export interface NPCDefinition {
     behavior?: string;
 }
 
-
 export {};

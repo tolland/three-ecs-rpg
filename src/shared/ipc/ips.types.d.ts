@@ -1,3 +1,4 @@
+import { ActiveViewId } from '@core/types/activeView';
 
 type SaveFileOptions = {
     indent?: number;
@@ -18,7 +19,8 @@ export interface LayoutEvent {
     type: LayoutEventType;
     sourceNodeId?: ViewportID;
     newNodeIds?: ViewportID[];
-    viewId?: string | null;
+    activeViewId?: ActiveViewId | null;
+    message?: string;
 }
 
 export type LayoutEventListener = (event: LayoutEvent) => void;

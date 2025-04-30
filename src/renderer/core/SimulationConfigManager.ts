@@ -1,12 +1,14 @@
 // src/renderer/core/SimulationConfigManager.ts
 import { Config, IConfigManager } from '@core/ConfigManager';
 import { ConfigMetadata, ConfigSetter } from '@core/UberConfigManager';
+import { LogManager } from '@renderer/utils/ManagerLogger';
 
 export interface SimulationConfig extends Config {
     timeScale: number;
     maxDeltaTime: number; // Store max dt here too?
 }
 
+@LogManager()
 export class SimulationConfigManager implements IConfigManager {
     public config: SimulationConfig = {
         timeScale: 1.0,

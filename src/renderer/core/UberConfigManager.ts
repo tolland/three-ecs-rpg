@@ -1,6 +1,7 @@
 // src/renderer/core/UberConfigManager.ts
 import { AppEventManager, appEventManager } from './AppEventManager';
 import { IConfigManager } from '@core/ConfigManager'; // Import sub-managers
+import { LogManager } from '@renderer/utils/ManagerLogger';
 
 export interface ConfigSetter {
     (value: any): void;
@@ -22,6 +23,7 @@ export interface ConfigMetadata {
 /**
  * The aim here was to create a single UberConfigManager that can manage multiple sub-managers. This would be the API for dbus and IPC access to configuration
  */
+@LogManager()
 export class UberConfigManager {
     // private input: InputConfigManager; // Add later
     // private ui: UIConfigManager; // Add later

@@ -59,6 +59,21 @@ export function fcbb(text: string): string { return chalk.blue.bold(text); }    
 export function fcmb(text: string): string { return chalk.magenta.bold(text); } // Magenta bold
 export function fccb(text: string): string { return chalk.cyan.bold(text); }    // Cyan bold
 
+// Foreground/Background combinations with high contrast
+export function contrastYellowOnBlue(text: string): string { return chalk.yellow.bgBlue(text); }
+export function contrastWhiteOnBlack(text: string): string { return chalk.white.bgBlack(text); }
+export function contrastBlackOnWhite(text: string): string { return chalk.black.bgWhite(text); }
+export function contrastGreenOnBlack(text: string): string { return chalk.green.bgBlack(text); }
+export function contrastBlueOnWhite(text: string): string { return chalk.blue.bgWhite(text); }
+export function contrastRedOnWhite(text: string): string { return chalk.red.bgWhite(text); }
+export function contrastCyanOnBlack(text: string): string { return chalk.cyan.bgBlack(text); }
+export function contrastMagentaOnBlack(text: string): string { return chalk.magenta.bgBlack(text); }
+
+// Key-value pair styling (useful for JSON or config data)
+export function keyValue(key: string, value: string): string {
+  return `${chalk.cyan(key)}: ${chalk.green(value)}`;
+}
+
 // RGB and Hex color support
 export function rgb(r: number, g: number, b: number, text: string): string {
   return chalk.rgb(r, g, b)(text);
@@ -74,6 +89,38 @@ export function warning(text: string): string { return chalk.yellow.bold(text); 
 export function error(text: string): string { return chalk.red.bold(text); }
 export function info(text: string): string { return chalk.blue.bold(text); }
 export function highlight(text: string): string { return chalk.bgYellow.black(text); }
+
+// Color pairing utility for creating custom combinations
+export function colorPair(fgColor: string, bgColor: string, text: string): string {
+  // Using chalk's composable API for custom color combinations
+  return chalk.hex(fgColor).bgHex(bgColor)(text);
+}
+
+// Advanced color combinations based on color theory
+export function complementary(text: string): string { return chalk.blue.bgYellow(text); }
+export function analogous1(text: string): string { return chalk.cyan.bgBlue(text); }
+export function analogous2(text: string): string { return chalk.blue.bgCyan(text); }
+export function triadic1(text: string): string { return chalk.green.bgMagenta(text); }
+export function triadic2(text: string): string { return chalk.magenta.bgYellow(text); }
+export function splitComplementary(text: string): string { return chalk.redBright.bgGreenBright(text); }
+export function tetradic1(text: string): string { return chalk.yellow.bgBlue(text); }
+export function tetradic2(text: string): string { return chalk.magenta.bgGreen(text); }
+
+// A11y-friendly combinations with high contrast ratio (4.5:1 or higher)
+export function a11yDefault(text: string): string { return chalk.white.bgBlack(text); }
+export function a11yInfo(text: string): string { return chalk.black.bgCyanBright(text); }
+export function a11ySuccess(text: string): string { return chalk.black.bgGreenBright(text); }
+export function a11yWarning(text: string): string { return chalk.black.bgYellowBright(text); }
+export function a11yError(text: string): string { return chalk.whiteBright.bgRed(text); }
+export function a11yImportant(text: string): string { return chalk.black.bgWhiteBright(text); }
+
+/**
+ * WCAG 2.0 color contrast guidelines:
+ * - Normal text: 4.5:1 contrast ratio
+ * - Large text: 3:1 contrast ratio
+ *
+ * High contrast combinations in this collection ensure at least 4.5:1 ratio
+ */
 
 // Re-export some formatters from the Formatting class for convenience
 export { Formatting } from './formatting';
@@ -137,6 +184,19 @@ export const F = {
   mb: fcmb,      // Magenta bold
   cb: fccb,      // Cyan bold
 
+  // Foreground/Background combinations with high contrast
+  contrastYellowOnBlue,
+  contrastWhiteOnBlack,
+  contrastBlackOnWhite,
+  contrastGreenOnBlack,
+  contrastBlueOnWhite,
+  contrastRedOnWhite,
+  contrastCyanOnBlack,
+  contrastMagentaOnBlack,
+
+  // Key-value pair styling
+  keyValue,
+
   // Special formatters
   success,
   warning,
@@ -146,7 +206,28 @@ export const F = {
 
   // Color builders
   rgb,
-  hex
+  hex,
+
+  // Color pairing utility
+  colorPair,
+
+  // Advanced color combinations
+  complementary,
+  analogous1,
+  analogous2,
+  triadic1,
+  triadic2,
+  splitComplementary,
+  tetradic1,
+  tetradic2,
+
+  // A11y-friendly combinations
+  a11yDefault,
+  a11yInfo,
+  a11ySuccess,
+  a11yWarning,
+  a11yError,
+  a11yImportant
 };
 
 // Default export

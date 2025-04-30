@@ -14,8 +14,10 @@ export class ColliderComponent extends Component {
         public shape: 'capsule' | 'sphere' | 'box' = 'capsule',
         public radius: number = 0.5, // Example property
         public height: number = 1.8, // Example for capsule
-        public offset = new THREE.Vector3(0, 0, 0), // Offset from entity position
-        onGround: boolean = false, // State often needed by physics/collision
+        // Offset from entity position
+        public offset = new THREE.Vector3(0, 0, 0),
+        // State often needed by physics/collision
+        onGround: boolean = false,
         public timeCollisionDelta: number = 0,
         public timeCollisionDeltaLimit: number = 0.1,
         public collisions: {
@@ -40,7 +42,7 @@ export class ColliderComponent extends Component {
 
     /**
      * Allow a dynamic transition between grounded and falling
-     * when walking off ledges, while performing reduced colluision
+     * when walking off ledges, while performing reduced collision
      * checks
      */
     public collisionTimeCheck(): boolean {

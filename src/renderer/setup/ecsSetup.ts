@@ -1,3 +1,4 @@
+// src/renderer/setup/ecsSetup.ts
 import { World } from '@ecs/World';
 import {
     AnimationSystem,
@@ -13,16 +14,17 @@ import {
 } from '@ecs/systems';
 import { Scene, WebGLRenderer } from 'three';
 import { InputManager } from '@core/InputManager';
-import { DebugHUDSystem } from '@systems/DebugHUDSystem';
+import { DebugHUDSystem } from '@systems/debug/DebugHUDSystem';
 import { PhysicsConfigManager } from '@core/PhysicsConfigManager';
-import { PhysicsHUD } from '@systems/PhysicsHUD';
+import { PhysicsHUD } from '@systems/hud/PhysicsHUD';
 import { WindSystem } from '@systems/WindSystem';
 import { AttachmentSystem } from '@systems/AttachmentSystem';
 import { appEventManager } from '@renderer/core';
 import { AreaTriggerSystem } from '@systems/AreaTriggerSystem';
-import { AudioSystem } from '@systems/AudioSystem';
-import { ForceBasedGravitySystem } from '@systems/ForceBasedGravitySystem';
-import { SpeedHUDSystem } from '@systems/SpeedHUDSystem';
+import { AudioSystem } from '@systems/audio/AudioSystem';
+import { ForceBasedGravitySystem } from '@systems/force/ForceBasedGravitySystem';
+import { SpeedHUDSystem } from '@systems/hud/SpeedHUDSystem';
+import * as F from '@renderer/utils/chalkColors';
 
 export function setupECS(
     world: World,
@@ -39,6 +41,10 @@ export function setupECS(
 } {
     // Return systems that might be needed elsewhere
 
+    console.log(
+        `${F.contrastGreenOnBlack('setupECS')}: starting setupECS`,
+    );
+
     // --- Create Systems ---
     const viewPortLayoutSystem = new ViewportLayoutSystem(world);
     const cameraSystem = new CameraSystem(world, scene);
@@ -47,14 +53,14 @@ export function setupECS(
         world,
         physicsConfigManager,
         appEventManager,
-        inputManager,
     );
     const freecamControlSystem = new FreecamControlSystem(world);
     const windSystem = new WindSystem(world);
     const gravitySystem = new ForceBasedGravitySystem(
         world,
         physicsConfigManager,
-    ); // <<< CHOOSE THIS
+    ); // <<< CHOOSE THIS#
+
     // const gravitySystem = new VelocityGravitySystem(world, physicsConfigManager); // <<< OR THIS
     const physicsSystem = new PhysicsSystem(world, physicsConfigManager);
     const collisionSystem = new CollisionSystem(world); // Needs Octree set later
@@ -83,7 +89,7 @@ export function setupECS(
     world.addSystem(collisionSystem);
     // apply forces and update velocity
     world.addSystem(physicsSystem);
-    // 5. Camera: Update camera positXions based on targets (after collision resolution).
+    // 5. Camera: Update camera positions based on targets (after collision resolution).
     world.addSystem(cameraSystem);
     cameraSystem.registerDependencies();
     playerControlSystem.registerDependencies();
@@ -101,6 +107,10 @@ export function setupECS(
     // world.addSystem(hudSystem);
     world.addSystem(physicsHUD);
     world.addSystem(speedHudSystem);
+
+    console.log(
+        `${F.contrastGreenOnBlack('setupECS')}: ending setupECS`,
+    );
 
     // Return key systems needed externally (e.g., for setting octree, resizing)
     return {

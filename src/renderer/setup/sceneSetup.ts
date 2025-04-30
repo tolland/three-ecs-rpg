@@ -47,8 +47,8 @@ export function setupScene(container: HTMLElement) {
     };
     window.addEventListener('resize', onWindowResize);
 
-    const axesHelper = new THREE.AxesHelper(5);
-    scene.add(axesHelper);
+    //const axesHelper = new THREE.AxesHelper(5);
+    //scene.add(axesHelper);
 
     // const gridHelper = new THREE.GridHelper(100, 100);
     // scene.add(gridHelper);

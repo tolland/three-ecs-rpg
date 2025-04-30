@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { RenderableComponent } from '@components/RenderableComponent';
+import { RenderableComponent } from '@components/render/RenderableComponent';
 
 export class AttachedComponent extends RenderableComponent {
     // Store the Three.js object associated with the entity

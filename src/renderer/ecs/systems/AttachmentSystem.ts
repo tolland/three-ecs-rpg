@@ -29,10 +29,11 @@ export class AttachmentSystem extends System {
                 entity,
                 AttachToComponent,
             )!;
-            const renderableComp = this.world.getComponent(
+            const renderableComp: RenderableComponent = this.world.getComponent(
                 entity,
                 RenderableComponent,
             )!;
+
             const childObject = renderableComp.object3D; // The object we want to attach
 
             // Only process if not already attached

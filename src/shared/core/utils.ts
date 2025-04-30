@@ -1,15 +1,18 @@
 import chalk from 'chalk';
 import { JsonValue } from '@shared/types/serialization';
 
-
 /**
  * Utility to serialize JSON-like types for console.log with color.
  * @param value - The JSON-like value to serialize.
  * @returns A string with colorized JSON output.
  */
 export function serializeForConsole(value: JsonValue): string {
+    if (!value) {
+        return 'no value to serialize';
+    }
     try {
         const jsonString = JSON.stringify(value, null, 2);
+
         return jsonString
             .replace(/"(.*?)":/g, chalk.blue('"$1":')) // Keys in blue
             .replace(/: "(.*?)"/g, chalk.green(': "$1"')) // String values in green

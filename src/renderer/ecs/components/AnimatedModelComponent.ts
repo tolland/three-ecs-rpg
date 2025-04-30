@@ -2,6 +2,9 @@
 import { Component } from '@ecs/Component';
 import * as THREE from 'three';
 
+/**
+ * Handles the states for animations attached to an entity
+ */
 export class AnimatedModelComponent extends Component {
     public mixer: THREE.AnimationMixer;
     public actions: Map<string, THREE.AnimationAction> = new Map(); // Map action names (e.g., "Idle", "Walk") to actions

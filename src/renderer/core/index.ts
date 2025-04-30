@@ -1,6 +1,5 @@
 export * from './AppEventManager';
 export * from './AssetManager';
-export * from './Constants';
 export * from './GameLoop';
 export * from './InputManager';
 export * from './PhysicsConfigManager';

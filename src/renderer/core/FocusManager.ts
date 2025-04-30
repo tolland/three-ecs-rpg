@@ -4,15 +4,22 @@ import { AppEventManager, appEventManager } from './AppEventManager';
 import { World } from '@ecs/World';
 import { AppAction } from '@shared/core';
 import {
+    CameraMode,
+    CameraTargetComponent,
     InputControllableComponent,
-    PlayerControlledComponent,
+    PlayerControlComponent,
 } from '@ecs/components';
 import { Entity } from '@ecs/Entity';
 import { RegisterManager } from '@core/ManagerRegistry';
 import { Manager } from '@core/types/manager';
 import * as F from '@renderer/utils/chalkColors';
-import { ViewportID } from '@core/types/viewport';
+import { ActiveViewId, SplitDirection, ViewportID } from '@core/types/viewport';
+import { Serializer } from '@shared/serialization/Serializer';
+import { serializeForConsole } from '@shared/core/utils';
+import { LogManager } from '@renderer/utils/ManagerLogger';
+import { ViewConfiguration } from '@core/ViewConfiguration';
 
+@LogManager()
 @RegisterManager()
 export class FocusManager implements Manager {
     private focusedViewportId: ViewportID | null = null;
@@ -21,7 +28,6 @@ export class FocusManager implements Manager {
 
     private layoutSystem: ViewportLayoutSystem | undefined;
     private cameraSystem: CameraSystem | undefined;
-    //private inputManager: InputManager | undefined;
     private world: World | undefined;
 
     constructor(private events: AppEventManager = appEventManager) {
@@ -47,7 +53,12 @@ export class FocusManager implements Manager {
     // region --- Event Handling
 
     private registerListeners() {
-        this.events.on(AppAction.VIEWPORT_CYCLE_FOCUS, this.cycleFocus);
+        this.events.on(AppAction.FOCUS_CYCLE_FOCUS, this.cycleFocus);
+        this.events.on(AppAction.FOCUS_CYCLE_ENTITY, this.cycleFocusedEntity);
+        this.events.on(
+            AppAction.FOCUS_CYCLE_CAMERA_MODE,
+            this.cycleFocusedCameraMode,
+        );
         this.events.on(AppAction.FOCUS_SET_FOCUS, this.handleSetFocusEvent);
         // Listen for layout changes that might remove the focused viewport?
         // Maybe CameraSystem emits 'activeViewDestroyed' event?
@@ -57,16 +68,35 @@ export class FocusManager implements Manager {
         );
         this.events.on(
             AppAction.FOCUS_SPLIT_FOCUSED_VIEWPORT,
-            this.handleSplitFocusedViewport.bind(this),
+            (payload: { splitDirection: SplitDirection | null }) => {
+                if (this.focusedViewportId !== null) {
+                    this.events.emit(AppAction.VIEWPORT_SPLIT_VIEWPORT, {
+                        viewportId: this.focusedViewportId,
+                    });
+                }
+            },
         );
-    }
-
-    private handleSplitFocusedViewport(payload: {}) {
-        if (this.focusedViewportId !== null) {
-            this.events.emit(AppAction.VIEWPORT_SPLIT_VIEWPORT, {
-                viewportId: this.focusedViewportId,
-            });
-        }
+        this.events.on(
+            AppAction.FOCUS_SPLIT_FOCUSED_VIEWPORT_HORIZONTAL,
+            (payload: { splitDirection: SplitDirection | null }) => {
+                if (this.focusedViewportId !== null) {
+                    this.events.emit(AppAction.VIEWPORT_SPLIT_VIEWPORT, {
+                        viewportId: this.focusedViewportId,
+                    });
+                }
+            },
+        );
+        this.events.on(
+            AppAction.FOCUS_SPLIT_FOCUSED_VIEWPORT_VERTICAL,
+            (payload: { splitDirection: SplitDirection | null }) => {
+                if (this.focusedViewportId !== null) {
+                    this.events.emit(AppAction.VIEWPORT_SPLIT_VIEWPORT, {
+                        viewportId: this.focusedViewportId,
+                        splitDirection: SplitDirection.VERTICAL,
+                    });
+                }
+            },
+        );
     }
 
     private handleMergeFocusedViewport(payload: {}) {
@@ -80,10 +110,18 @@ export class FocusManager implements Manager {
         }
     }
 
-    handleSetFocusEvent = (payload?: { viewportId: ViewportID }) => {
+    handleSetFocusEvent = (payload?: {
+        viewportId: ViewportID;
+        activeViewId: ActiveViewId;
+    }) => {
+        console.log(`${F.fcCyan('FocusManager')}: handleSetFocusEvent
+            payload: ${serializeForConsole(Serializer.serialize(payload))}`);
         if (!this.layoutSystem || !payload) return;
         const leaf = this.layoutSystem.findLeaf(payload.viewportId);
         if (leaf) {
+            console.log(
+                `${F.fcCyan('FocusManager')}: handleSetFocusEvent  leaf.id: ${leaf.id} leaf.activeViewId: ${leaf.activeViewId}`,
+            );
             this.setFocus(leaf.id, leaf.activeViewId);
         }
     };
@@ -94,19 +132,83 @@ export class FocusManager implements Manager {
     cycleFocus = () => {
         // Use arrow function to preserve 'this' if used as direct listener
         if (!this.layoutSystem) return;
-        const leaves = this.layoutSystem
-            .getActiveLeafs()
-            .filter((leaf) => leaf.activeViewId); // Only leaves with views
+
+        const leaves = this.layoutSystem.getAllLeafs();
+
         if (leaves.length > 0) {
             this.focusCycleIndex = (this.focusCycleIndex + 1) % leaves.length;
             const nextLeaf = leaves[this.focusCycleIndex];
             this.setFocus(nextLeaf.id, nextLeaf.activeViewId);
-        } else {
-            this.setFocus(null, null); // No focus if no views
+            return;
+        }
+
+        const allLeafs = this.layoutSystem.getAllLeafs();
+        if (allLeafs.length == 1) {
+            console.warn(
+                `layoutsystem: ${serializeForConsole(Serializer.serialize(this.layoutSystem))}`,
+            );
+            this.setFocus(allLeafs[0].id, allLeafs[0].activeViewId);
+        }
+    };
+
+    // Cycles focus to the next available viewport leaf
+    cycleFocusedEntity = () => {
+        const viewConfig = this.getViewConfigForActiveView();
+        if (viewConfig) {
+            const entities =
+                this.world?.queryEntities([CameraTargetComponent]) || [];
+
+            if (!entities.length) {
+                console.warn('no entities found to cycle');
+            }
+
+            if (viewConfig.targetEntity === null) {
+                viewConfig.targetEntity = entities[0]; // Default to the first entity if no target is set
+            }
+
+            let found = false;
+            for (let i = 0; i < entities.length; i++) {
+                const entity = entities[i];
+                if (found) {
+                    viewConfig.targetEntity = entity;
+                    return; // Return the next entity after the current one
+                }
+                if (entity === viewConfig.targetEntity) {
+                    found = true;
+                }
+            }
+            // If we reach here, it means the target entity was the last one, so return the first entity
+            if (found && entities.length > 0) {
+                viewConfig.targetEntity = entities[0];
+            }
+        }
+    };
+
+    private getViewConfigForActiveView(): ViewConfiguration | undefined {
+        if (!this.focusedActiveViewId) return;
+        const activeView = this.cameraSystem?.getActiveView(
+            this.focusedActiveViewId,
+        );
+        if (!activeView) return;
+        return this.cameraSystem?.getViewConfiguration(activeView.viewConfigId);
+    }
+
+    // Cycles the camera mode of the viewConfig in focus
+    cycleFocusedCameraMode = () => {
+        const viewConfig = this.getViewConfigForActiveView();
+        if (viewConfig) {
+            viewConfig.mode =
+                Object.values(CameraMode)[
+                    (Object.values(CameraMode).indexOf(viewConfig.mode) + 1) %
+                        Object.values(CameraMode).length
+                ];
         }
     };
 
     setFocus(viewportId: ViewportID | null, activeViewId: string | null): void {
+        console.log(
+            `${F.fcCyan('FocusManager')}: setFocus viewportId: ${viewportId} activeViewId: ${activeViewId}`,
+        );
         if (this.focusedViewportId === viewportId) return; // No change
 
         const oldFocusedViewId = this.focusedActiveViewId;
@@ -115,8 +217,8 @@ export class FocusManager implements Manager {
 
         // Notify CameraSystem
         this.events.emit(AppAction.FOCUS_CHANGED, {
-            viewportId,
-            activeViewId,
+            viewportId: viewportId,
+            activeViewId: activeViewId,
             oldActiveViewId: oldFocusedViewId,
         });
 
@@ -129,7 +231,8 @@ export class FocusManager implements Manager {
         // TODO: Update visual indicator for focused viewport? (e.g., border)
     }
 
-    // Moves the PlayerControlledComponent to the entity targeted by the newly focused view
+    // Moves the PlayerControlComponent to the entity targeted by the
+    // newly focused view
     private updatePlayerControlTarget(
         oldActiveViewId: string | null,
         newActiveViewId: string | null,
@@ -138,7 +241,7 @@ export class FocusManager implements Manager {
 
         let oldTargetEntity: Entity | null = null;
         console.log(
-            `${F.fcCyan('FocusManager')}: oldActiveViewId ${oldActiveViewId} newActiveViewId ${newActiveViewId}`,
+            `${F.fcCyan('FocusManager')}: updatePlayerControlTarget oldActiveViewId ${oldActiveViewId} newActiveViewId ${newActiveViewId}`,
         );
         if (oldActiveViewId) {
             const oldView = this.cameraSystem.getActiveView(oldActiveViewId);
@@ -162,25 +265,15 @@ export class FocusManager implements Manager {
         );
 
         if (oldTargetEntity !== null && oldTargetEntity !== newTargetEntity) {
-            if (
-                this.world.hasComponent(
-                    oldTargetEntity,
-                    PlayerControlledComponent,
-                )
-            ) {
-                this.world.removeComponent(
-                    oldTargetEntity,
-                    PlayerControlledComponent,
-                );
-                console.log(
-                    `${F.fcCyan('FocusManager')}: Removed PlayerControl from Entity ${oldTargetEntity}`,
-                );
-            }
+            this.world.removeComponent(oldTargetEntity, PlayerControlComponent);
+            console.log(
+                `${F.fcCyan('FocusManager')}: Removed PlayerControlComponent from Entity ${oldTargetEntity}`,
+            );
         }
 
         if (
             newTargetEntity !== null &&
-            !this.world.hasComponent(newTargetEntity, PlayerControlledComponent)
+            !this.world.hasComponent(newTargetEntity, PlayerControlComponent)
         ) {
             // Ensure the target can be controlled
             if (
@@ -191,10 +284,10 @@ export class FocusManager implements Manager {
             ) {
                 this.world.addComponent(
                     newTargetEntity,
-                    new PlayerControlledComponent(),
+                    new PlayerControlComponent(),
                 );
                 console.log(
-                    `${F.fcCyan('FocusManager')}: Added PlayerControl to Entity ${newTargetEntity}`,
+                    `${F.fcCyan('FocusManager')}: Added PlayerControlComponent to Entity ${newTargetEntity}`,
                 );
             } else {
                 console.warn(

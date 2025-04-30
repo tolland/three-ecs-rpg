@@ -1,29 +1,43 @@
 // src/shared/core/AppActions.ts
-export enum AppAction {
-    TOGGLE_DEBUG_HUD = 'TOGGLE_DEBUG_HUD',
-    TOGGLE_MAP_HUD = 'TOGGLE_MAP_HUD', // Assuming you might add an HTML map HUD later
-    TOGGLE_ENTITY_OUTLINES = 'TOGGLE_ENTITY_OUTLINES', // Placeholder for future feature
-    PAUSE_GAME = 'PAUSE_GAME',
-    SWITCH_PLAYER_CONTROL = 'SWITCH_PLAYER_CONTROL', // The 'P' key logic
 
-    // Camera Controls (could be combined or separate)
-    SET_CAMERA_MAIN = 'SET_CAMERA_MAIN',
-    SET_CAMERA_NPC1 = 'SET_CAMERA_NPC1', // Or cycle next/prev?
-    CYCLE_CAMERA_NEXT = 'CYCLE_CAMERA_NEXT', // Alternative camera control
-    SET_CAMERA_FIRST_PERSON = 'SET_CAMERA_FIRST_PERSON', // Can reuse SET_CAMERA_MAIN if desired
+
+/**
+ * actions that can be trigger remotely or bound to keys
+ */
+export enum AppAction {
+
+    NOT_ASSIGNED = 'NOT ASSIGNED',
+
+    TOGGLE_DEBUG_HUD = 'TOGGLE_DEBUG_HUD',
+    TOGGLE_MAP_HUD = 'TOGGLE_MAP_HUD',
+    TOGGLE_ENTITY_OUTLINES = 'TOGGLE_ENTITY_OUTLINES',
+    PAUSE_GAME = 'PAUSE_GAME',
+    SWITCH_PLAYER_CONTROL = 'SWITCH_PLAYER_CONTROL',
+
+    // Alternative camera control
+    CYCLE_CAMERA_NEXT = 'CYCLE_CAMERA_NEXT',
+    // Can reuse SET_CAMERA_MAIN if desired
+    SET_CAMERA_FIRST_PERSON = 'SET_CAMERA_FIRST_PERSON',
     SET_CAMERA_THIRD_PERSON_GLOBAL = 'SET_CAMERA_THIRD_PERSON_GLOBAL',
     SET_CAMERA_THIRD_PERSON_ENTITY = 'SET_CAMERA_THIRD_PERSON_ENTITY',
-    TOGGLE_DEBUG_VISUALS = 'TOGGLE_DEBUG_VISUALS', // New or reused action
+
+    // New or reused action
+    TOGGLE_DEBUG_VISUALS = 'TOGGLE_DEBUG_VISUALS',
     ENTITY_COLLISION_IMPACT = 'ENTITY_COLLISION_IMPACT',
     PLAYER_ACTION = 'PLAYER_ACTION',
+
     AREA_TRIGGER_ENTER = 'AREA_TRIGGER_ENTER',
     AREA_TRIGGER_EXIT = 'AREA_TRIGGER_EXIT',
+
     TOGGLE_GOD_MODE = 'TOGGLE_GOD_MODE',
+
     INCREASE_TIME_SCALE = 'INCREASE_TIME_SCALE',
     DECREASE_TIME_SCALE = 'DECREASE_TIME_SCALE',
+
     RESET_TIME_SCALE = 'RESET_TIME_SCALE',
     RELOAD = 'RELOAD',
     FORCE_RELOAD = 'FORCE_RELOAD',
+
     // --- Viewport events ---
     VIEWPORT_TOGGLE_SPLITSCREEN = 'TOGGLE_SPLITSCREEN',
     VIEWPORT_SPLITSCREEN_HORIZONTAL = 'SPLITSCREEN_HORIZONTAL',
@@ -39,20 +53,21 @@ export enum AppAction {
     // Set focus directly (e.g., by clicking) payload: { viewportId: ViewportID }
 
     // relay through the focus manager to get current ids
+    FOCUS_CYCLE_FOCUS = 'FOCUS_CYCLE_FOCUS',
     FOCUS_MERGE_FOCUSED_VIEWPORT = 'FOCUS_MERGE_FOCUSED_VIEWPORT',
     FOCUS_SPLIT_FOCUSED_VIEWPORT = 'FOCUS_SPLIT_FOCUSED_VIEWPORT',
     FOCUS_SPLIT_FOCUSED_VIEWPORT_HORIZONTAL = 'FOCUS_SPLIT_FOCUSED_VIEWPORT_HORIZONTAL',
     FOCUS_SPLIT_FOCUSED_VIEWPORT_VERTICAL = 'FOCUS_SPLIT_FOCUSED_VIEWPORT_VERTICAL',
-
-
-
-    FOCUS_SET_FOCUS = 'VIEWPORT_SET_FOCUS',
+    FOCUS_SET_FOCUS = 'FOCUS_SET_FOCUS',
     FOCUS_CHANGED = 'FOCUS_CHANGED',
+    FOCUS_CYCLE_ENTITY = "FOCUS_CYCLE_ENTITY",
+    FOCUS_CYCLE_CAMERA_MODE = "FOCUS_CYCLE_CAMERA_MODE",
 
-    VIEW_CYCLE_ENTITY = 'VIEW_CYCLE_ENTITY', // Cycle entity in focused view
-    VIEW_CYCLE_MODE = 'VIEW_CYCLE_MODE', // Cycle camera mode in focused view
-    VIEW_SET_ENTITY = 'VIEW_SET_ENTITY', // Set specific entity payload: { viewConfigId: ViewConfigID, entityId: Entity | null }
-    VIEW_SET_MODE = 'VIEW_SET_MODE', // Set specific mode payload: { viewConfigId: ViewConfigID, mode: CameraMode | 'FREECAM' }
+    // View Config events
+    VIEW_CONFIG_CYCLE_ENTITY = "VIEW_CONFIG_CYCLE_ENTITY",
+    VIEW_CONFIG_CYCLE_MODE = "VIEW_CONFIG_CYCLE_MODE",
+    VIEW_CONFIG_SET_ENTITY = "VIEW_CONFIG_SET_ENTITY",
+
     QUITTING = 'QUITTING', // try and cleanup before quitting
     QUIT = 'QUIT', // quit the app
     // --- internalapp events ---

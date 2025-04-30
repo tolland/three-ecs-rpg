@@ -2,26 +2,30 @@
 import { InputAction } from '@shared/core/InputActions';
 import { AppAction } from '@shared/core';
 import { AppEventManager } from './AppEventManager';
-import { serializeForConsole } from '@renderer/utils/formatting';
-import { Serializer } from '@shared/serialization/Serializer';
 import { ActionStates, KeyMappingConfig } from '@core/types';
-
+import * as F from '@renderer/utils/chalkColors';
+import { LogManager } from '@renderer/utils/ManagerLogger';
 
 /**
  * This is the InputManager class that handles input events and maps them to actions.
- * It uses a configuration file to load key mappings and manages the state of input actions. It is eetting flags for the various inputs that it is managing.
+ * It uses a configuration file to load key mappings and manages the state of input actions. It is setting flags for the various inputs that it is managing.
  * It also handles mouse movement and pointer lock state.
  *
  */
+@LogManager()
 export class InputManager {
+    // map control inputs
     private keyToActionMap: Map<string, InputAction> = new Map();
-    private keyToAppActionMap: Map<string, AppAction> = new Map(); // Separate map for app actions
+    // Separate map for app actions
+    private keyToAppActionMap: Map<string, AppAction> = new Map();
+
+    // This is the state of the input actions, read by InputSystem
     private actionStates: ActionStates = new Map();
-    private targetElement: HTMLElement;
+
+    private readonly targetElement: HTMLElement;
     private appEventManager: AppEventManager; // Reference to the event manager
 
     // Mouse state (can also be managed here or stay in InputSystem)
-    public mouseDelta = { x: 0, y: 0 };
     public pointerLocked = false;
     private unconsumedMouseDelta = { x: 0, y: 0 };
 

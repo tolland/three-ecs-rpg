@@ -6,7 +6,7 @@ import { CameraSystem, CollisionSystem } from '@ecs/systems';
 import { RenderLayers } from '@setup/sceneSetup';
 import { WorldConfigManager } from '@core/WorldConfigManager';
 import { audioManager } from '@core/AudioManager';
-import { createPlayable, PlayerAssets } from '@renderer/prefabs/playablePrefab';
+
 import { createDebugArrow } from '@renderer/prefabs/debugArrowPrefab';
 import { GenericMergedGeometry } from '@renderer/logic/GeometryMerging';
 import { BVHCollisionWorld } from '@renderer/logic/CollisionWorldBVH';
@@ -17,6 +17,12 @@ import {
 } from 'three-mesh-bvh';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { WorldConfig } from '@renderer/types/worldConfig';
+import {
+    DEFAULT_PLAYER_OPTIONS,
+    PlayerAssets,
+} from '@renderer/prefabs/types/playables';
+import { createPlayable } from '@renderer/prefabs';
+import { withDefaults } from '@renderer/utils/optionsHelper';
 
 // Apply three-mesh-bvh extensions
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
@@ -67,29 +73,29 @@ export class WorldBuilder {
         collisionSystem: CollisionSystem,
         cameraSystem: CameraSystem,
     ): Promise<void> {
-        try {
-            // Load the configuration
-            if (isWorldConfig(config)) {
-                console.log('using worldConfig directly');
-                this.worldConfig = config;
-            } else {
-                console.log('loading worldConfig from file');
-                this.worldConfig = await this.configManager.loadConfig(config);
-            }
-
-            // Set up the world based on the configuration
-            await this.setupEnvironment(scene);
-            await this.loadSounds();
-            await this.loadModels();
-            await this.setupWorld(world, scene, collisionSystem, cameraSystem);
-            await this.createPlayer(world, scene);
-            await this.createNPCs(world, scene);
-
-            console.log('World built successfully from config:', config);
-        } catch (error) {
-            console.error('Failed to build world from config:', error);
-            throw error;
+        // try {
+        // Load the configuration
+        if (isWorldConfig(config)) {
+            console.log('using worldConfig directly');
+            this.worldConfig = config;
+        } else {
+            console.log('loading worldConfig from file');
+            this.worldConfig = await this.configManager.loadConfig(config);
         }
+
+        // Set up the world based on the configuration
+        await this.setupEnvironment(scene);
+        await this.loadSounds();
+        await this.loadModels();
+        await this.setupWorld(world, scene, collisionSystem, cameraSystem);
+        await this.createPlayer(world, scene);
+        await this.createNPCs(world, scene);
+
+        console.log('World built successfully from config:', config);
+        // } catch (error) {
+        //     console.error('Failed to build world from config:', error);
+        //     throw error;
+        // }
     }
 
     /**
@@ -327,10 +333,8 @@ export class WorldBuilder {
         // Set up player assets
         const playerAssets: PlayerAssets = { soldierGltf: playerGltf };
 
-        // Create player entity
-        const { entity: playerEntity, object3D: playerObject } = createPlayable(
-            world,
-            playerAssets,
+        const playerOpts = withDefaults(
+            { ...DEFAULT_PLAYER_OPTIONS, position: new THREE.Vector3() },
             {
                 position: this.configManager.coordsToVector3(
                     spawnPoint.position,
@@ -340,6 +344,26 @@ export class WorldBuilder {
                     : undefined,
                 isControlled: true,
             },
+        );
+
+        // Create player entity
+        const { entity: playerEntity, object3D: playerObject } = createPlayable(
+            world,
+            playerAssets,
+            withDefaults(
+                { ...DEFAULT_PLAYER_OPTIONS, position: new THREE.Vector3() },
+                {
+                    position: this.configManager.coordsToVector3(
+                        spawnPoint.position,
+                    ),
+                    rotation: spawnPoint.rotation
+                        ? this.configManager.arrayToQuaternion(
+                              spawnPoint.rotation,
+                          )
+                        : undefined,
+                    isControlled: true,
+                },
+            ),
         );
 
         scene.add(playerObject);
@@ -389,6 +413,7 @@ export class WorldBuilder {
                           )
                         : undefined,
                     isControlled: false,
+                    isControllable: true,
                     cameraId: npcConfig.id,
                 },
             );

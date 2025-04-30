@@ -1,8 +1,12 @@
 // src/renderer/core/AppEventManager.ts
 import { AppAction } from '@shared/core/AppActions';
+import { Serializer } from '@shared/serialization/Serializer';
+import { serializeForConsole } from '@shared/core/utils';
+import { RegisterManager } from '@core/ManagerRegistry';
 
 type AppActionListener = (payload?: any) => void;
 
+@RegisterManager()
 export class AppEventManager {
     private listeners: Map<AppAction, AppActionListener[]> = new Map();
 
@@ -11,6 +15,8 @@ export class AppEventManager {
         Object.values(AppAction).forEach((action) => {
             this.listeners.set(action, []);
         });
+
+        console.log("in constructor of appeventmanager");
     }
 
     on(action: AppAction, listener: AppActionListener): void {
@@ -30,7 +36,9 @@ export class AppEventManager {
     }
 
     emit(action: AppAction, payload?: any): void {
-        // console.log(`Event emitted: ${action}`, payload); // Debug emission
+        console.log(
+            `Event emitted: ${action} payload :${serializeForConsole(Serializer.serialize(payload))}`,
+        ); // Debug emission
         this.listeners.get(action)?.forEach((listener) => {
             try {
                 listener(payload);

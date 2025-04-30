@@ -108,6 +108,13 @@ export namespace Serializer {
             return value as JsonValue;
         }
 
+        // Check depth limit
+        if (context.maxDepth && context.depth >= context.maxDepth) {
+            return null; // Or any placeholder value to indicate depth limit reached
+        }
+
+        const nextContext = { ...context, depth: context.depth + 1 };
+
         // Apply replacers first
         for (const replacer of replacers) {
             const replaced = replacer('', value);
@@ -123,7 +130,7 @@ export namespace Serializer {
 
         // Handle arrays
         if (Array.isArray(value)) {
-            return value.map((item) => serialize(item, context, replacers));
+        return value.map((item) => serialize(item, nextContext, replacers));
         }
 
         // Handle special types
@@ -143,29 +150,32 @@ export namespace Serializer {
                     'serializable',
                     value.constructor,
                 ) as Array<SerializeMetadata<T>>) || [];
-            for (const { key, serializer, outputKey } of properties) {
-                const propValue = (value as T)[key as keyof T];
-                const targetKey = outputKey || String(key);
-                if (serializer) {
-                    result[targetKey] = serializer.serialize(propValue);
-                } else {
-                    result[targetKey] = serialize(
-                        propValue,
-                        context,
-                        replacers,
-                    );
+            if (properties.length !== 0) {
+                for (const { key, serializer, outputKey } of properties) {
+                    const propValue = (value as T)[key as keyof T];
+                    const targetKey = outputKey || String(key);
+                    if (serializer) {
+                        result[targetKey] = serializer.serialize(propValue);
+                    } else {
+                        result[targetKey] = serialize(
+                            propValue,
+                        nextContext,
+                            replacers,
+                        );
+                    }
                 }
+                return result;
             }
-        } else {
-            // For plain objects, serialize all properties
-            for (const key in value) {
-                if (Object.prototype.hasOwnProperty.call(value, key)) {
-                    result[key] = serialize(
-                        (value as Record<string, unknown>)[key],
-                        context,
-                        replacers,
-                    );
-                }
+        }
+        // got here assuming is a plain object, or a non-decorated class instance
+        // For plain objects, serialize all properties
+        for (const key in value) {
+            if (Object.prototype.hasOwnProperty.call(value, key)) {
+                result[key] = serialize(
+                    (value as Record<string, unknown>)[key],
+                nextContext,
+                    replacers,
+                );
             }
         }
 

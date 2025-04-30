@@ -20,6 +20,7 @@ import { createInitialView } from '@renderer/prefabs/initialView';
 import { WorldBuilder } from '@setup/WorldBuilder';
 import { setupFileMenuListeners } from '@setup/menu_ipc';
 import { initDebugTools } from '@renderer/debugTools';
+import { audioManager } from '@core/AudioManager';
 
 // Declare cleanup listeners
 let cleanupControlListener: (() => void) | undefined;
@@ -81,6 +82,7 @@ const gameLoop = new GameLoop(
     },
 );
 
+console.log('before calling logic of appeventmanager');
 // --- Define App Action Handlers ---
 initAppEventManager(
     eventManager,
@@ -94,6 +96,7 @@ initAppEventManager(
     cleanupControlListener,
     cleanupConfigListener,
 );
+console.log('after calling logic of appeventmanager');
 
 focusManager.registerDependencies(world);
 
@@ -134,11 +137,48 @@ Promise.all([
         // Register dependencies which also sets initial focus
         focusManager.registerDependencies(world);
 
-        gameLoop.start();
+        // *** MODIFICATION: Add a delay before starting the game loop to ensure cameras are ready ***
+        setTimeout(() => {
+            // Initialize the audio system now that cameras exist
+            initializeAudioSystem();
+
+            // Start the game loop after audio is initialized
+            gameLoop.start();
+        }, 100); // 100ms delay should be enough for camera matrices to update
     })
     .catch((err) => {
         console.error('Error during initial setup:', err);
     });
+
+function initializeAudioSystem() {
+    try {
+        console.log('Initializing audio system...');
+
+        // Ensure the AudioContext is created and resumed (needed for some browsers)
+        if (audioManager.listener && audioManager.listener.context &&
+            audioManager.listener.context.state !== 'running') {
+            console.log('Resuming audio context...');
+            audioManager.listener.context.resume().catch(err => {
+                console.warn('Could not resume audio context:', err);
+            });
+        }
+
+        // Log audio listener status
+        if (audioManager.listener) {
+            console.log('Audio listener is initialized');
+            if (audioManager.listener.parent) {
+                console.log('Audio listener is attached to:', audioManager.listener.parent.name);
+            } else {
+                console.log('Audio listener is not attached to any object');
+            }
+        }
+
+        console.log('Audio system initialized');
+    } catch (error) {
+        console.error('Error initializing audio system:', error);
+        // Continue anyway - audio is not critical to app functionality
+    }
+}
 
 // --- Cleanup ---
 window.addEventListener('beforeunload', () => {
@@ -148,13 +188,3 @@ window.addEventListener('beforeunload', () => {
 });
 
 initDebugTools(world);
-
-// --- Exception Handling ---
-// TODO doesn't seem to be working
-// process.on('uncaughtException', (err) => {
-//     console.error('Uncaught Exception:', err);
-// });
-//
-// process.on('unhandledRejection', (reason, promise) => {
-//     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-// });

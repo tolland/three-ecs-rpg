@@ -1,18 +1,20 @@
 // src/renderer/core/ViewConfiguration.ts
 import * as THREE from 'three';
 import { Entity } from '@ecs/Entity';
-import { CameraMode } from '@components/CameraTargetComponent';
-import { ViewConfigID } from '@core/types/viewport';
+import { CameraMode } from '@components/camera/CameraTargetComponent';
+import { CameraID, ViewConfigID } from '@core/types/viewport';
 
 /**
  * (Data Object):
  * Describes what a view shows. Managed by CameraSystem.
+ * ViewConfiguration (ViewConfigID): Describes the desired state of a view (target entity, mode, offsets, orbit angles, freecam state, potentially effects). This can be shared. Multiple ActiveViews can point to the same ViewConfigID.
  */
 export interface ViewConfiguration {
     id: ViewConfigID;
     name: string; // User-friendly name (e.g., "Player 1 Cam", "NPC Overview")
-    targetEntity: Entity | null; // null for freecam
-    mode: CameraMode | 'FREECAM'; // Add FREECAM mode
+    targetEntity: Entity | null;
+    mode: CameraMode;
+    cameraId: CameraID;
 
     // Settings (can be grouped)
     firstPersonOffset: THREE.Vector3;
@@ -36,12 +38,15 @@ export interface ViewConfiguration {
 }
 
 // Factory function for default config
-export function createDefaultViewConfig(id: ViewConfigID, name: string): ViewConfiguration {
+export function createDefaultViewConfig(id: ViewConfigID, name: string, cameraId: CameraID): ViewConfiguration {
     return {
         id, name,
         targetEntity: null,
-        mode: 'FREECAM',
+        mode: CameraMode.FIRST_PERSON,
+        cameraId: cameraId,
+
         firstPersonOffset: new THREE.Vector3(0, 0.8, 0),
+
         thirdPersonDistance: 5.0,
         thirdPersonMinDistance: 1.0,
         thirdPersonMaxDistance: 10.0,
@@ -51,7 +56,7 @@ export function createDefaultViewConfig(id: ViewConfigID, name: string): ViewCon
         thirdPersonCollisionBuffer: 0.15,
         thirdPersonLookAtOffset: new THREE.Vector3(0, 0.9, 0),
 
-        freecamPosition: new THREE.Vector3(0, 10, 10), // Default freecam start
+        freecamPosition: new THREE.Vector3(0, 10, 10),
         freecamRotation: new THREE.Quaternion(),
 
         currentDistance: 5.0,

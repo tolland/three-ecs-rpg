@@ -1,14 +1,11 @@
 import { AppEventManager, GameLoop, UberConfigManager } from '@renderer/core';
 import { AppAction } from '@shared/core';
 import {
-    CameraMode,
     CameraTargetComponent,
     ColliderComponent,
     GodModeComponent,
     InputControllableComponent,
-    NameComponent,
-    PlayerControlledComponent,
-    PositionComponent,
+    PlayerControlGroundedComponent,
     VelocityComponent,
 } from '@ecs/components';
 import * as THREE from 'three';
@@ -22,7 +19,6 @@ import {
 } from '@ecs/systems';
 import { World } from '@ecs/World';
 import { Entity } from '@ecs/Entity';
-import { ViewConfiguration } from '@core/ViewConfiguration';
 
 // Toggle HUDs (Example - assumes you have corresponding systems/logic)
 let isDebugHudVisible = true; // Keep track of state
@@ -90,95 +86,12 @@ export function initAppEventManager(
         debugVisualsSystem.toggle(); // Call the toggle method on the system
     });
 
-    // Switch Player Control
-    eventManager.on(AppAction.SWITCH_PLAYER_CONTROL, () => {
-        console.log('Attempting to switch control via event...');
-        // --- Paste the existing KeyP logic here ---
-        const playerEntities = world.queryEntities([PlayerControlledComponent]);
-        const npcEntities = world.queryEntities([CameraTargetComponent]); // Find potential NPCs
-
-        if (playerEntities.length > 0 && npcEntities.length > 0) {
-            const currentPcEntity = playerEntities[0];
-            // Find the NPC entity (assuming it's the first one found with CameraTarget that isn't the player)
-            let targetNpcEntity = -1;
-            for (const npc of npcEntities) {
-                if (
-                    npc !== currentPcEntity &&
-                    world.hasComponent(npc, ColliderComponent)
-                ) {
-                    // Make sure it's not player and is collidable
-                    targetNpcEntity = npc;
-                    break;
-                }
-            }
-            if (targetNpcEntity !== -1) {
-                console.log(
-                    `Switching PlayerControl from ${currentPcEntity} to ${targetNpcEntity}`,
-                );
-
-                // Remove control from current player
-                world.removeComponent(
-                    currentPcEntity,
-                    PlayerControlledComponent,
-                );
-                const currentInputComp = world.getComponent(
-                    currentPcEntity,
-                    InputControllableComponent,
-                );
-                if (currentInputComp) currentInputComp.pointerLocked = false; // Release pointer lock if held
-
-                // Add control to NPC
-                if (
-                    !world.hasComponent(
-                        targetNpcEntity,
-                        InputControllableComponent,
-                    )
-                ) {
-                    world.addComponent(
-                        targetNpcEntity,
-                        new InputControllableComponent(),
-                    );
-                }
-                world.addComponent(
-                    targetNpcEntity,
-                    new PlayerControlledComponent(),
-                );
-
-                // Make the main camera follow the newly controlled entity
-                const playerTargetComp = world.getComponent(
-                    currentPcEntity,
-                    CameraTargetComponent,
-                );
-                const npcTargetComp = world.getComponent(
-                    targetNpcEntity,
-                    CameraTargetComponent,
-                );
-
-                if (playerTargetComp && playerTargetComp.cameraId === 'main') {
-                    world.removeComponent(
-                        currentPcEntity,
-                        CameraTargetComponent,
-                    );
-                }
-                if (!npcTargetComp || npcTargetComp.cameraId !== 'main') {
-                    // Ensure the new entity has a main camera target component
-                    world.addComponent(
-                        targetNpcEntity,
-                        new CameraTargetComponent(
-                            'main',
-                            npcTargetComp?.offset ||
-                                new THREE.Vector3(0, 0.7, 0),
-                        ),
-                    );
-                }
-            }
-        }
-        // --- End of KeyP logic ---
-    });
 
     // Camera Mode Switching
     eventManager.on(AppAction.SET_CAMERA_FIRST_PERSON, () => {
-        const controlled = world.queryEntities([PlayerControlledComponent])[0];
+        const controlled = world.queryEntities([
+            PlayerControlGroundedComponent,
+        ])[0];
         if (controlled !== undefined) {
             console.warn('Setting camera to first person via event');
             //cameraSystem.setCameraMode('main', CameraMode.FIRST_PERSON, controlled);
@@ -186,7 +99,9 @@ export function initAppEventManager(
     });
 
     eventManager.on(AppAction.SET_CAMERA_THIRD_PERSON_GLOBAL, () => {
-        const controlled = world.queryEntities([PlayerControlledComponent])[0];
+        const controlled = world.queryEntities([
+            PlayerControlGroundedComponent,
+        ])[0];
         if (controlled !== undefined) {
             console.warn(
                 'SET_CAMERA_THIRD_PERSON_GLOBAL camera to first person via event',
@@ -194,20 +109,6 @@ export function initAppEventManager(
             // cameraSystem.setCameraMode(
             //     'main',
             //     CameraMode.THIRD_PERSON_GLOBAL,
-            //     controlled,
-            // );
-        }
-    });
-
-    eventManager.on(AppAction.SET_CAMERA_THIRD_PERSON_ENTITY, () => {
-        const controlled = world.queryEntities([PlayerControlledComponent])[0];
-        if (controlled !== undefined) {
-            console.warn(
-                'SET_CAMERA_THIRD_PERSON_ENTITY camera to first person via event',
-            );
-            // cameraSystem.setCameraMode(
-            //     'main',
-            //     CameraMode.THIRD_PERSON_ENTITY,
             //     controlled,
             // );
         }
@@ -236,7 +137,9 @@ export function initAppEventManager(
     });
 
     eventManager.on(AppAction.TOGGLE_GOD_MODE, () => {
-        const playerEntities = world.queryEntities([PlayerControlledComponent]);
+        const playerEntities = world.queryEntities([
+            PlayerControlGroundedComponent,
+        ]);
         if (playerEntities.length > 0) {
             const playerEntity = playerEntities[0];
             const hasGodMode = world.hasComponent(
@@ -290,16 +193,16 @@ export function initAppEventManager(
     //         }
     //     }
     // });
-    eventManager.on(AppAction.VIEWPORT_SPLIT_VERTICAL, () => {
-        const focusedView = cameraSystem.getFocusedActiveView();
-        if (focusedView) {
-            layoutSystem.splitVertical(focusedView.viewportId);
-        } else {
-            if (layoutSystem.getRootNode().type === 'leaf') {
-                layoutSystem.splitVertical(layoutSystem.getRootNode().id);
-            }
-        }
-    });
+    // eventManager.on(AppAction.VIEWPORT_SPLIT_VERTICAL, () => {
+    //     const focusedView = cameraSystem.getFocusedActiveView();
+    //     if (focusedView) {
+    //         layoutSystem.splitVertical(focusedView.viewportId);
+    //     } else {
+    //         if (layoutSystem.getRootNode().type === 'leaf') {
+    //             layoutSystem.splitVertical(layoutSystem.getRootNode().id);
+    //         }
+    //     }
+    // });
     /**
      * event received from keyinput or dbus, indicating a request to merged
      * the focused viewport.
@@ -341,100 +244,100 @@ export function initAppEventManager(
     // });
 
     // --- View Configuration Cycling ---
-    eventManager.on(AppAction.VIEW_CYCLE_ENTITY, () => {
-        const focusedView = cameraSystem.getFocusedActiveView();
-        if (!focusedView) return;
-        const viewConfig = cameraSystem.getViewConfiguration(
-            focusedView.viewConfigId,
-        );
-        if (!viewConfig) return;
+    // eventManager.on(AppAction.VIEW_CYCLE_ENTITY, () => {
+    //     const focusedView = cameraSystem.getFocusedActiveView();
+    //     if (!focusedView) return;
+    //     const viewConfig = cameraSystem.getViewConfiguration(
+    //         focusedView.viewConfigId,
+    //     );
+    //     if (!viewConfig) return;
+    //
+    //     // Get list of potential target entities (e.g., player + NPCs)
+    //     const playableEntities = world.queryEntities([
+    //         NameComponent,
+    //         ColliderComponent,
+    //     ]); // Example criteria
+    //     const currentTargetIndex = playableEntities.indexOf(
+    //         viewConfig.targetEntity ?? -1,
+    //     );
+    //     const nextTargetIndex =
+    //         (currentTargetIndex + 1) % (playableEntities.length + 1); // +1 for null/freecam option
+    //
+    //     let nextTargetId: Entity | null = null;
+    //     if (nextTargetIndex < playableEntities.length) {
+    //         nextTargetId = playableEntities[nextTargetIndex];
+    //         // If cycling into freecam, reset mode?
+    //         if (viewConfig.mode === 'FREECAM')
+    //             viewConfig.mode = CameraMode.THIRD_PERSON_ENTITY;
+    //     } else {
+    //         // Cycle to freecam
+    //         nextTargetId = null;
+    //         // Set reasonable freecam position based on previous target?
+    //         if (viewConfig.targetEntity !== null) {
+    //             const lastPos = world.getComponent(
+    //                 viewConfig.targetEntity,
+    //                 PositionComponent,
+    //             );
+    //             if (lastPos)
+    //                 viewConfig.freecamPosition
+    //                     .copy(lastPos.value)
+    //                     .add(new THREE.Vector3(0, 5, 5));
+    //         }
+    //         viewConfig.mode = 'FREECAM';
+    //     }
+    //
+    //     // Update the view configuration
+    //     cameraSystem.updateViewConfiguration(viewConfig.id, {
+    //         targetEntity: nextTargetId,
+    //         mode: viewConfig.mode,
+    //     });
+    //     console.log(
+    //         `View ${viewConfig.id}: Cycled entity to ${nextTargetId === null ? 'FREECAM' : world.getComponent(nextTargetId, NameComponent)?.name}`,
+    //     );
+    // });
 
-        // Get list of potential target entities (e.g., player + NPCs)
-        const playableEntities = world.queryEntities([
-            NameComponent,
-            ColliderComponent,
-        ]); // Example criteria
-        const currentTargetIndex = playableEntities.indexOf(
-            viewConfig.targetEntity ?? -1,
-        );
-        const nextTargetIndex =
-            (currentTargetIndex + 1) % (playableEntities.length + 1); // +1 for null/freecam option
-
-        let nextTargetId: Entity | null = null;
-        if (nextTargetIndex < playableEntities.length) {
-            nextTargetId = playableEntities[nextTargetIndex];
-            // If cycling into freecam, reset mode?
-            if (viewConfig.mode === 'FREECAM')
-                viewConfig.mode = CameraMode.THIRD_PERSON_ENTITY;
-        } else {
-            // Cycle to freecam
-            nextTargetId = null;
-            // Set reasonable freecam position based on previous target?
-            if (viewConfig.targetEntity !== null) {
-                const lastPos = world.getComponent(
-                    viewConfig.targetEntity,
-                    PositionComponent,
-                );
-                if (lastPos)
-                    viewConfig.freecamPosition
-                        .copy(lastPos.value)
-                        .add(new THREE.Vector3(0, 5, 5));
-            }
-            viewConfig.mode = 'FREECAM';
-        }
-
-        // Update the view configuration
-        cameraSystem.updateViewConfiguration(viewConfig.id, {
-            targetEntity: nextTargetId,
-            mode: viewConfig.mode,
-        });
-        console.log(
-            `View ${viewConfig.id}: Cycled entity to ${nextTargetId === null ? 'FREECAM' : world.getComponent(nextTargetId, NameComponent)?.name}`,
-        );
-    });
-
-    eventManager.on(AppAction.VIEW_CYCLE_MODE, () => {
-        const focusedView = cameraSystem.getFocusedActiveView();
-        if (!focusedView) return;
-        const viewConfig = cameraSystem.getViewConfiguration(
-            focusedView.viewConfigId,
-        );
-        if (!viewConfig) return;
-
-        console.log('got here');
-        const modes: (CameraMode | 'FREECAM')[] = [
-            CameraMode.FIRST_PERSON,
-            CameraMode.THIRD_PERSON_ENTITY,
-            CameraMode.THIRD_PERSON_GLOBAL,
-            'FREECAM',
-        ];
-
-        const currentIndex = modes.indexOf(viewConfig.mode);
-        const nextIndex = (currentIndex + 1) % modes.length;
-        const nextMode = modes[nextIndex];
-
-        // If switching TO freecam, clear target entity
-        let updates: Partial<ViewConfiguration> = { mode: nextMode };
-        if (nextMode === 'FREECAM' && viewConfig.targetEntity !== null) {
-            updates.targetEntity = null;
-            // Set freecam position based on current view?
-            const currentCam = cameraSystem.getCameraInstance(
-                focusedView.cameraId,
-            );
-            if (currentCam) {
-                updates.freecamPosition = currentCam.position.clone();
-                updates.freecamRotation = currentCam.quaternion.clone();
-            }
-        }
-        // If switching FROM freecam, assign a default entity?
-        else if (viewConfig.mode === 'FREECAM' && nextMode !== 'FREECAM') {
-            const player = world.queryEntities([PlayerControlledComponent])[0];
-            updates.targetEntity = player ?? null; // Assign player or null
-        }
-
-        cameraSystem.updateViewConfiguration(viewConfig.id, updates);
-        console.log(`View ${viewConfig.id}: Cycled mode to ${nextMode}`);
-    });
+    // eventManager.on(AppAction.VIEW_CYCLE_MODE, () => {
+    //     const focusedView = cameraSystem.getFocusedActiveView();
+    //     if (!focusedView) return;
+    //     const viewConfig = cameraSystem.getViewConfiguration(
+    //         focusedView.viewConfigId,
+    //     );
+    //     if (!viewConfig) return;
+    //
+    //     console.log('got here');
+    //     const modes: (CameraMode | 'FREECAM')[] = [
+    //         CameraMode.FIRST_PERSON,
+    //         CameraMode.THIRD_PERSON_ENTITY,
+    //         CameraMode.THIRD_PERSON_GLOBAL,
+    //         'FREECAM',
+    //     ];
+    //
+    //     const currentIndex = modes.indexOf(viewConfig.mode);
+    //     const nextIndex = (currentIndex + 1) % modes.length;
+    //     const nextMode = modes[nextIndex];
+    //
+    //     // If switching TO freecam, clear target entity
+    //     let updates: Partial<ViewConfiguration> = { mode: nextMode };
+    //     if (nextMode === 'FREECAM' && viewConfig.targetEntity !== null) {
+    //         updates.targetEntity = null;
+    //         // Set freecam position based on current view?
+    //         const currentCam = cameraSystem.getCameraInstance(
+    //             focusedView.cameraId,
+    //         );
+    //         if (currentCam) {
+    //             updates.freecamPosition = currentCam.position.clone();
+    //             updates.freecamRotation = currentCam.quaternion.clone();
+    //         }
+    //     }
+    //     // If switching FROM freecam, assign a default entity?
+    //     else if (viewConfig.mode === 'FREECAM' && nextMode !== 'FREECAM') {
+    //         const player = world.queryEntities([PlayerControlledComponent])[0];
+    //         updates.targetEntity = player ?? null; // Assign player or null
+    //     }
+    //
+    //     cameraSystem.updateViewConfiguration(viewConfig.id, updates);
+    //     console.log(`View ${viewConfig.id}: Cycled mode to ${nextMode}`);
+    // });
 
     // TODO hmm.. do we need both QUITTING and QUIT??
     eventManager.on(AppAction.QUITTING, () => {
@@ -448,7 +351,7 @@ export function initAppEventManager(
         world.destroy();
     });
 
-    console.log('AppEventManager initialized');
+    console.log('AppEventManager logic initialized');
 }
 
 // 'ENTITY_COLLISION_IMPACT', payload: { entityId: number, impactVelocity: number, surfaceType: 'ground' | 'wall' }

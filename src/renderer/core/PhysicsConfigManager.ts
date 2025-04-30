@@ -2,6 +2,7 @@
 
 import { ConfigMetadata, ConfigSetter } from '@core/UberConfigManager';
 import { Config, IConfigManager } from '@core/ConfigManager';
+import { LogManager } from '@renderer/utils/ManagerLogger';
 
 export interface PlayerPhysicsConfig {
     walkSpeed: number;
@@ -28,6 +29,7 @@ const DEFAULT_CONFIG: PhysicsConfig = {
     },
 };
 
+@LogManager()
 export class PhysicsConfigManager implements IConfigManager {
     public config: PhysicsConfig = DEFAULT_CONFIG;
     private isLoaded = false;

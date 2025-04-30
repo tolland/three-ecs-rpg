@@ -1,23 +1,7 @@
 import { World } from '@ecs/World';
 import * as THREE from 'three';
-import { Entity } from '@ecs/Entity';
-
-import {
-    CameraTargetComponent,
-    PlayerControlledComponent,
-} from '@ecs/components';
-import { PlayerAssets, PlayerOptions } from '@renderer/prefabs/playablePrefab';
-
-// Options for creating the arrow
-export interface PlayableOptions {
-    position: THREE.Vector3;
-}
-
-// The result includes the entity ID and the main object to add to the scene
-export interface PlayableOptionsResult {
-    entity: Entity;
-    object3D: THREE.Object3D; // The root object for rendering
-}
+import { PlayableOptions, PlayerAssets, PlayerOptions, PlayerPrefabResult } from '@renderer/prefabs/types/playables';
+import { CameraTargetComponent, PlayerControlGroundedComponent } from '@ecs/components';
 
 /**
  * create a playable entity with the specified assets and options.
@@ -28,7 +12,7 @@ export function createPlayableEntity(
     world: World,
     assets: PlayerAssets,
     options: PlayableOptions,
-): PlayableOptionsResult {
+): PlayerPrefabResult {
     const npcOptions: PlayerOptions = {
         position: new THREE.Vector3(5, 5, 2),
     };
@@ -39,10 +23,10 @@ export function createPlayableEntity(
         npcOptions,
     );
     // Remove player-specific components
-    world.removeComponent(npcEntity, PlayerControlledComponent);
+    world.removeComponent(npcEntity, PlayerControlGroundedComponent);
     // world.removeComponent(npcEntity, InputControllableComponent);
     // Add specific NPC components (AI, different camera target?)
-    world.addComponent(npcEntity, new CameraTargetComponent('npc1'));
+    world.addComponent(npcEntity, new CameraTargetComponent());
 
     return {
         entity: npcEntity,

@@ -4,10 +4,10 @@ import { World } from '@ecs/World';
 import {
     AreaTriggerComponent,
     NameComponent,
-    PlayerControlledComponent,
+    PlayerControlGroundedComponent,
     PositionComponent,
 } from '@ecs/components';
-import { TriggerShape } from '@ecs/components/AreaTriggerComponent'; // Import enum
+import { TriggerShape } from '@ecs/components/AreaTriggerComponent';
 import { appEventManager, AppEventManager } from '@core/AppEventManager';
 import * as THREE from 'three';
 
@@ -26,7 +26,7 @@ export class AreaTriggerSystem extends System {
     update(deltaTime: number): void {
         // Find entities that can activate triggers (e.g., the player)
         const activators = this.world.queryEntities([
-            PlayerControlledComponent,
+            PlayerControlGroundedComponent,
             PositionComponent,
         ]);
         if (activators.length === 0) return; // No one to trigger anything

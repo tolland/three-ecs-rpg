@@ -1,8 +1,20 @@
 import * as THREE from 'three';
 
-export type ViewportID = string; // Unique ID for a viewport leaf node
-export type CameraID = string; // Unique ID for a THREE.Camera instance
-export type ViewConfigID = string; // Unique ID for a View Configuration
+export type ViewportID = string;
+export type CameraID = string;
+export type ViewConfigID = string;
+export type ActiveViewId = string;
+
+/**
+ * (Linking Object): Connects Layout, Camera, and Config.
+ * Managed by CameraSystem.
+ */
+export interface ActiveView {
+    id: ActiveViewId;
+    viewportId: ViewportID;
+    viewConfigId: ViewConfigID;
+}
+
 
 /**
  * ViewportLayoutNode (Tree Structure): Represents the screen layout. Can be a leaf (displaying a view) or a split node (dividing space).
@@ -29,4 +41,9 @@ export interface LeafNode {
     activeViewId: string | null;
     // Calculated absolute viewport (updated by LayoutManager)
     calculatedViewport: ViewportRect;
+}
+
+export enum SplitDirection {
+    HORIZONTAL,
+    VERTICAL,
 }

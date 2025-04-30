@@ -4,11 +4,13 @@ import { ConfigManager } from './ConfigManager';
 import { readFile, saveConfig } from '@renderer/logic/ConfigManager';
 import { Serializer } from '@shared/serialization/Serializer';
 import { AssetReference, NPCDefinition, SpawnPointDefinition, WorldConfig } from '@renderer/types/worldConfig';
+import { LogManager } from '@renderer/utils/ManagerLogger';
 
 
 /**
  * Manager for loading and accessing world configuration data from YAML files
  */
+@LogManager()
 export class WorldConfigManager extends ConfigManager<WorldConfig> {
     private _config: WorldConfig | null = null;
     private _configPath: string | null = null;

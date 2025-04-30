@@ -38,6 +38,7 @@ export const DBUS_MAPPINGS: DBUSMethodSignature = {
         GetSystemData: { inSignature: 's', outSignature: 's' }, // String -> String (JSON)
         GetLayout: { inSignature: '', outSignature: 's' },
         SetLayout: { inSignature: 's', outSignature: 'b' }, // String -> Boolean
+        SendAppAction: { inSignature: 's', outSignature: '' },
     },
     // methods: {
     //     ListEntities: { inSignature: '', outSignature: 's' }, // Array of Dicts {Int32: String}

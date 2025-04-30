@@ -8,11 +8,20 @@ import { appEventManager, AppEventManager } from '@renderer/core';
 import { AppAction } from '@shared/core';
 import { LayoutEvent, LayoutEventType } from '@shared/ipc/ips.types';
 import * as F from '@renderer/utils/chalkColors';
-import { LayoutNode, LeafNode, SplitNode, ViewportID, ViewportRect } from '@core/types/viewport';
+import {
+    LayoutNode,
+    LeafNode,
+    SplitDirection,
+    SplitNode,
+    ViewportID,
+    ViewportRect,
+} from '@core/types/viewport';
+import { LogManager } from '@renderer/utils/ManagerLogger';
 
 /**
  * Manages the layout tree and calculates viewport rectangles.
  */
+@LogManager()
 export class ViewportLayoutSystem extends System {
     @Serializer.Serialize()
     private rootNode: LayoutNode;
@@ -43,9 +52,6 @@ export class ViewportLayoutSystem extends System {
             calculatedViewport: new THREE.Vector4(0, 0, 1, 1) as ViewportRect,
         };
         this.leafNodes.set(leaf.id, leaf);
-        this.events.emit(AppAction.FOCUS_SET_FOCUS, {
-            viewportId: leaf.id,
-        });
         return leaf;
     }
 
@@ -68,8 +74,17 @@ export class ViewportLayoutSystem extends System {
         }
     }
 
-    private handleSplitViewport(payload: { viewportId: string | null }) {
+    private handleSplitViewport(payload: {
+        viewportId: string | null;
+        splitDirection: SplitDirection | null;
+    }) {
         if (payload.viewportId) {
+            if (
+                payload.splitDirection &&
+                payload.splitDirection == SplitDirection.VERTICAL
+            ) {
+                this.splitVertical(payload.viewportId);
+            }
             this.splitHorizontal(payload.viewportId);
         }
     }
@@ -319,6 +334,8 @@ export class ViewportLayoutSystem extends System {
         const sibling =
             parent.childA === leafToRemove ? parent.childB : parent.childA;
 
+        this.assignActiveViewToLeaf(sibling.id, leafToRemove.activeViewId);
+
         // Replace the parent split node with the sibling node in the grandparent (or root)
         if (this.rootNode === parent) {
             this.rootNode = sibling;
@@ -395,7 +412,7 @@ export class ViewportLayoutSystem extends System {
 
         const newLeafA = this.createDefaultLeaf();
         const newLeafB = this.createDefaultLeaf(); // New leaf starts empty
-        this.assignViewToLeaf(newLeafA.id, leafToSplit.activeViewId);
+        this.assignActiveViewToLeaf(newLeafA.id, leafToSplit.activeViewId);
 
         const newSplitNode: SplitNode = {
             id: generateId({ prefix: 'ln-' }),
@@ -433,7 +450,7 @@ export class ViewportLayoutSystem extends System {
         this.notifyChanges('leaf-split', {
             sourceNodeId: targetLeafId,
             newNodeIds: [newLeafA.id, newLeafB.id],
-            viewId: leafToSplit.activeViewId,
+            activeViewId: leafToSplit.activeViewId,
         });
 
         return newSplitNode;
@@ -442,21 +459,29 @@ export class ViewportLayoutSystem extends System {
     // endregion
 
     /** Assigns an ActiveView ID to a specific leaf node */
-    assignViewToLeaf(leafId: ViewportID, activeViewId: string | null): boolean {
+    assignActiveViewToLeaf(
+        leafId: ViewportID,
+        activeViewId: string | null,
+    ): boolean {
         const beforeTree = this.getTreeNotation();
+        console.log(
+            `${F.fcGreen('ViewportLayoutSystem')}: Assigned ActiveView ${activeViewId} to Leaf ${leafId}`,
+            `\nTree change: ${beforeTree} → ${this.getTreeNotation()}`,
+        );
 
         const leaf = this.findLeaf(leafId);
         if (leaf) {
             leaf.activeViewId = activeViewId;
-            console.log(
-                `${F.fcGreen('ViewportLayoutSystem')}: Assigned ActiveView ${activeViewId} to Leaf ${leafId}`,
-                `\nTree change: ${beforeTree} → ${this.getTreeNotation()}`,
-            );
 
             // Emit view assignment event
             this.notifyChanges('view-assigned', {
                 sourceNodeId: leafId,
-                viewId: activeViewId,
+                activeViewId: activeViewId,
+            });
+
+            this.events.emit(AppAction.FOCUS_SET_FOCUS, {
+                viewportId: leafId,
+                activeViewId: activeViewId,
             });
 
             return true;
@@ -514,13 +539,11 @@ export class ViewportLayoutSystem extends System {
     }
 
     /** Gets all currently active leaf nodes */
-    getActiveLeafs(): LeafNode[] {
+    getAllLeafs(): LeafNode[] {
         return Array.from(this.leafNodes.values());
     }
 
     //endregion
-
-    update(deltaTime: number): void {}
 
     clear(): void {
         const beforeTree = this.getTreeNotation();
