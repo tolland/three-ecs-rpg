@@ -1,164 +1,66 @@
-// src/main/main.ts
-import { app, BrowserWindow, screen } from 'electron';
-import path from 'path';
-import { setupDbusService, teardownDbusService } from './dbusService';
+// @filename: src/main/main.ts
+import { app, BrowserWindow } from 'electron';
+import { teardownDbusService } from './dbus/dbusService';
 import log from 'electron-log';
-import { rendererAPI } from '@main/rendererAPI';
 import { AppAction } from '@shared/core';
-import { createApplicationMenu } from '@main/app_menu';
 import { installThreeEcsInspector } from './installInspector';
-import { setupExtensionDevTools, installDevToolsExtension } from './extensionReloader';
+import { setupExtensionDevTools } from './extensionReloader';
+import { configureSingleInstanceLock } from '@main/lib/single_instance_lock';
+import { reloadElectronOnChanges } from '@main/lib/electron_reloader';
+import { createWindow } from '@main/lib/create_window';
+import { LoggingService } from '@shared/utils/LoggingService';
+
+LoggingService.getInstance().setEnabled(true);
 
 log.transports.file.level = 'debug';
 log.info('Application starting...');
 
-// Optional: Disable hardware acceleration if needed
-// app.disableHardwareAcceleration();
+export const MainLoggingConfig = {
+    source: 'main-js',
+    enabled: true,
+    logToGraylog: true,
+    logConstructors: true,
+    logFocusedChanged: false,
+    logMethods: false,
+    /** Style for manager names in logs */
+    styleFocusChange: (name: string) => `\x1b[36m${name}\x1b[0m`, // Cyan color
+    /** Style for lifecycle events */
+    styleLifecycle: (event: string) => `\x1b[33m${event}\x1b[0m`, // Yellow color
+};
 
-// --- Single Instance Lock ---
-// Request the lock early in the app lifecycle
-const gotTheLock = app.requestSingleInstanceLock();
+LoggingService.getInstance().logMessage({
+    host: MainLoggingConfig.source,
+    short_message: 'start of startup in main.js',
+});
 
-// Store mainWindow globally or pass it appropriately if needed in the 'second-instance' handler
 let mainWindow: BrowserWindow | null = null;
 
-if (!gotTheLock) {
-    // Another instance is already running, quit this new one
-    console.log('Another instance is already running. Quitting this one.');
-    app.quit();
-} else {
-    // This is the primary instance. Set up handler for subsequent attempts to launch.
-    app.on('second-instance', (event, commandLine, workingDirectory) => {
-        // Someone tried to run a second instance, we should focus our window.
-        console.log(
-            'Second instance attempt detected. Focusing primary window.',
-        );
-        if (mainWindow) {
-            if (mainWindow.isMinimized()) mainWindow.restore();
-            mainWindow.focus();
-        }
-    });
-}
+configureSingleInstanceLock(mainWindow);
+reloadElectronOnChanges(); // not working. @TODO switch to reload via dbus
 
 console.log(
     `App is running in ${app.isPackaged ? 'production' : 'development'} mode. process.env.NODE_ENV: ${process.env.NODE_ENV}`,
 );
 
-// Enable hot reload for development
-// @TODO this is not working properly
-// if (process.env.NODE_ENV === 'development') {
-//     console.log('Development mode detected. Enabling hot reload.');
-//     try {
-//         require('electron-reloader')(__dirname, {
-//             electron: require(`${__dirname}/../../node_modules/electron`),
-//             // hardResetMethod: 'exit'
-//             paths: [
-//                 `${__dirname}/dist/main/**/*`,
-//                 "dist/renderer/**/*",
-//                 "dist/preload/**/*",
-//             ]
-//         });
-//         console.log('Hot reload enabled');
-//     } catch (error) {
-//         console.log('Hot reload error:', error);
-//     }
-// }
-
-async function installExtensions() {
-    try {
-        // Install Three.js ECS Inspector
-        await installThreeEcsInspector();
-        log.info('Three.js ECS Inspector extension installed successfully');
-
-    } catch (error) {
-        log.error('Failed to install Three.js ECS Inspector extension:', error);
-    }
-}
-
-function createWindow() {
-    const primaryDisplay = screen.getPrimaryDisplay();
-    const { width, height } = primaryDisplay.workAreaSize;
-
-    // Assign to the outer scope variable
-    mainWindow = new BrowserWindow({
-        width: Math.max(1024, width * 0.8),
-        height: Math.max(768, height * 0.8),
-        webPreferences: {
-            preload: path.join(__dirname, '../preload/preload.js'),
-            contextIsolation: true,
-            nodeIntegration: false,
-            devTools: !app.isPackaged,
-            // @TODO need to fix this
-            webSecurity: false,
-        },
-        title: 'Three.js ECS RPG',
-    });
-
-    // --- Intercept Ctrl+W ---
-    mainWindow.webContents.on('before-input-event', (event, input) => {
-        // Check for Ctrl+W specifically (or Cmd+W on macOS)
-        // input.meta is Cmd on macOS, input.control is Ctrl on Win/Linux
-
-        const isCtrlW =
-            (input.control || input.meta) &&
-            !input.alt &&
-            !input.shift &&
-            input.key.toLowerCase() === 'w';
-
-        if (isCtrlW) {
-            console.log(
-                'Main Process: Ctrl+W intercepted, preventing default.',
-            );
-            event.preventDefault(); // Prevent closing the window or other default actions
-        }
-
-        if (input.key.toLowerCase() === 'tab') {
-            console.log('Main Process: Tab intercepted, preventing default.');
-            event.preventDefault(); // Prevent reloading the window
-        }
-    });
-    // --- End Intercept ---
-
-    // Load the renderer's HTML file
-    if (app.isPackaged) {
-        // Production: Load from packaged file
-        mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
-        mainWindow.webContents.openDevTools();
-    } else {
-        // Development: Load from localhost (assuming a dev server, e.g., with Vite or Rollup watch)
-        // Or load directly if Rollup outputs to dist/renderer
-        mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
-        mainWindow.webContents.openDevTools();
-    }
-
-    setupDbusService(mainWindow.webContents)
-        .then((r) => console.log('DBus service setup complete:', r))
-        .catch((e) => console.error('Error setting up DBus service:', e));
-
-    // Optional: Clean up D-Bus on close
-    mainWindow.on('closed', () => {
-        mainWindow = null;
-        // teardownDbusService(); // May need async handling on quit
-    });
-
-    // setup listener for IPC messages from renderer
-    rendererAPI();
-
-    // Create application menu
-    createApplicationMenu(mainWindow);
-}
+app.commandLine.appendSwitch('remote-debugging-port', '8315');
+// app.commandLine.appendSwitch('host-rules', 'MAP * 127.0.0.1')
 
 app.whenReady().then(async () => {
-    // Install extensions
-    await installExtensions();
 
-    createWindow();
+    LoggingService.getInstance().logMessage({
+        host: MainLoggingConfig.source,
+        short_message: 'mian is ready',
+    });
+
+    // Install extensions
+    await installThreeEcsInspector();
+
+    mainWindow = createWindow(mainWindow);
 
     app.on('activate', function () {
         console.log(`Activating app...`);
-        // On macOS it's common to re-create a window in the app when the
-        // dock icon is clicked and there are no other windows open.
-        if (BrowserWindow.getAllWindows().length === 0) createWindow();
+        if (BrowserWindow.getAllWindows().length === 0)
+            createWindow(mainWindow);
     });
 
     if (mainWindow) {
@@ -182,10 +84,10 @@ app.whenReady().then(async () => {
         });
 
         // Setup extension development tools
-        if (process.env.NODE_ENV !== 'production') {
-            setupExtensionDevTools(mainWindow);
-            log.info('Extension development tools set up');
-        }
+        //if (process.env.NODE_ENV !== 'production') {
+        setupExtensionDevTools(mainWindow);
+        log.info('Extension development tools set up');
+        //}
     }
 
     if (!mainWindow) {

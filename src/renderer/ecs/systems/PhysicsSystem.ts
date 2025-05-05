@@ -14,7 +14,7 @@ import { PhysicsConfigManager } from '@core/PhysicsConfigManager';
 import { statsManager } from '@renderer/utils/CustomStats';
 import { PhysicsLogic } from '@renderer/logic/PhysicsLogic';
 import { Entity } from '@ecs/Entity';
-import { LoggingService } from './debug/LoggingService';
+import { LoggingService } from '@shared/utils/LoggingService';
 
 export class PhysicsSystem extends System {
     // Store reference to manager

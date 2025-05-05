@@ -1,9 +1,9 @@
-// src/main/dbusService.ts
+// src/main/dbus/dbusService.ts
 import * as dbus from 'dbus-next';
 import { DBusError } from 'dbus-next';
 import { AppAction } from '@shared/core';
 import { ipcMain } from 'electron';
-import { DBUS_MAPPINGS } from '@main/dbus_mappings';
+import { DBUS_MAPPINGS } from '@main/dbus/dbus_mappings';
 import { DBUS } from '@shared/core/dbusConstants';
 
 const SERVICE_NAME = 'org.three-ecs-rpg.App';

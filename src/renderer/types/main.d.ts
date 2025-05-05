@@ -1,3 +1,5 @@
+// src/renderer/types/main.d.ts
+
 interface Window {
     electronProcess: {
         onUncaughtException: (callback: (error: Error) => void) => void;
@@ -11,18 +13,21 @@ declare global {
         __THREE_DEVTOOLS__: {
             dispatchEvent: (event: Event) => void;
         };
+        scene: THREE.Scene;
+        renderer: THREE.WebGLRenderer;
         electronIPC: {
             // Add other exposed functions here if any
             handle: (
                 channel: string,
                 listener: (args: any) => Promise<any> | any,
             ) => void;
-            invoke: (channel: string, args?: any) => Promise<any>; // If needed
+            invoke: (channel: string, args?: any) => Promise<any>;
+            send: (channel: string, args?: any) => Promise<any>;
             handleRequest: (
                 channel: string,
                 listener: (args: any) => Promise<any> | any,
             ) => Promise<any> | any;
-            on:  (
+            on: (
                 channel: string,
                 listener: (args: any) => Promise<any> | any,
             ) => Promise<any> | any;

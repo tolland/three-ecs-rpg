@@ -11,7 +11,6 @@ export * from './controls/InputSystem';
 export * from './controls/PlayerControlSystem';
 export * from './debug/DebugHUDSystem';
 export * from './debug/DebugVisualsSystem';
-export * from './debug/LoggingService';
 export * from './force/ForceBasedGravitySystem';
 export * from './hud/PhysicsHUD';
 export * from './hud/SpeedHUDSystem';

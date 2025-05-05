@@ -4,6 +4,11 @@ import path from 'path';
 import * as fs from 'node:fs';
 import * as YAML from 'yaml';
 
+/**
+ * rendererAPI
+ *
+ * methods exposed to renderer
+ */
 export function rendererAPI() {
     // Handle saving a file with data
     ipcMain.handle(
@@ -105,7 +110,9 @@ export function rendererAPI() {
         }
     });
 
-    // Handle reading a file
+    /*
+     Handle reading a file
+    */
     ipcMain.handle('read-file', async (_event, { filePath }) => {
         try {
             const content = await fs.promises.readFile(filePath, 'utf8');

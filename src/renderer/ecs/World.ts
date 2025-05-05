@@ -11,8 +11,6 @@ import {
     EntityInfo,
 } from './types/World';
 import * as F from '@renderer/utils/chalkColors';
-import { CameraSystemLoggingConfig } from '@ecs/systems';
-import { AudioManagerLoggingConfig } from '@core/AudioManager';
 
 export const WorldLoggingConfig = {
     /** Main toggle for enabling/disable all AudioManager logging */
@@ -44,8 +42,8 @@ export class World {
         this.entities.set(entityId, new Map());
         // console.debug(`ECS: Created Entity ${entityId}`);
         if (
-            !WorldLoggingConfig.enabled ||
-            !WorldLoggingConfig.logEntityCreate
+            WorldLoggingConfig.enabled &&
+            WorldLoggingConfig.logEntityCreate
         ) {
             console.log(`${F.fcMagenta('World')}: Created entity ${entityId}}`);
         }
@@ -194,6 +192,11 @@ export class World {
     }
 
     // --- Querying ---
+
+    getEntities(): Entity[] {
+        return Array.from(this.entities.keys());
+    }
+
     // Finds all entities that have *all* the specified component types
     queryEntities<T extends Component[]>(
         componentTypes: [...{ [K in keyof T]: ComponentConstructor<T[K]> }],

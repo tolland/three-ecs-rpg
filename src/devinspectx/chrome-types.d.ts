@@ -5,67 +5,82 @@
  */
 
 declare namespace chrome {
-  namespace runtime {
-    function connect(connectInfo?: { name?: string }): Port;
-    function getURL(path: string): string;
+    namespace runtime {
+        function connect(connectInfo?: { name?: string }): Port;
 
-    interface Port {
-      name: string;
-      onMessage: {
-        addListener(callback: (message: any) => void): void;
-        removeListener(callback: (message: any) => void): void;
-      };
-      onDisconnect: {
-        addListener(callback: () => void): void;
-      };
-      postMessage(message: any): void;
-      disconnect(): void;
-    }
-  }
+        function getURL(path: string): string;
 
-  namespace devtools {
-    interface PanelShownEvent {
-      addListener(callback: (window: Window) => void): void;
-    }
+        interface Port {
+            name: string;
+            onMessage: {
+                addListener(callback: (message: any) => void): void;
+                removeListener(callback: (message: any) => void): void;
+            };
+            onDisconnect: {
+                addListener(callback: () => void): void;
+            };
 
-    interface PanelHiddenEvent {
-      addListener(callback: () => void): void;
+            postMessage(message: any): void;
+
+            disconnect(): void;
+            sender?: MessageSender | undefined;
+        }
     }
 
-    interface Panel {
-      onShown: PanelShownEvent;
-      onHidden: PanelHiddenEvent;
-    }
+    namespace devtools {
+        interface PanelShownEvent {
+            addListener(callback: (window: Window) => void): void;
+        }
 
-    namespace panels {
-      function create(title: string, iconPath: string, pagePath: string, callback: (panel: Panel) => void): void;
-    }
+        interface PanelHiddenEvent {
+            addListener(callback: () => void): void;
+        }
 
-    interface InspectedWindow {
-      tabId: number;
-      eval(expression: string, callback?: (result: any, isException: boolean) => void): void;
-    }
+        interface Panel {
+            onShown: PanelShownEvent;
+            onHidden: PanelHiddenEvent;
+        }
 
-    const inspectedWindow: InspectedWindow;
-  }
+        namespace panels {
+            function create(
+                title: string,
+                iconPath: string,
+                pagePath: string,
+                callback: (panel: Panel) => void,
+            ): void;
+        }
+
+        interface InspectedWindow {
+            tabId: number;
+
+            eval(
+                expression: string,
+                callback?: (result: any, isException: boolean) => void,
+            ): void;
+        }
+
+        const inspectedWindow: InspectedWindow;
+    }
 }
 
 // Add global extension properties to Window interface
 interface Window {
     __panelInitialized?: boolean;
-    __hasMessageListener?: boolean;
-  __threeEcsInspectorPort?: chrome.runtime.Port;
-  __ecsDebug?: any;
+    __threeEcsInspectorPort?: chrome.runtime.Port;
+    __ecsDebug?: any;
 
-  // Add Three.js global variables that might exist in the page context
-  scene?: any;
-  renderer?: any;
-  world?: any;
+    // Add Three.js global variables that might exist in the page context
+    scene?: any;
+    renderer?: any;
+    world?: any;
+    game?: any;
+    app?: any;
+    THREE?: any;
 }
 
 // Declare global script element with onload handler
 interface HTMLScriptElement extends HTMLElement {
-  onload: (this: GlobalEventHandlers, ev: Event) => any;
+    onload: (this: GlobalEventHandlers, ev: Event) => any;
 }
 
 // Added NodeJS timeout type compatibility

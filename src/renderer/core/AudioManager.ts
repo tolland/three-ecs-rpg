@@ -1,6 +1,5 @@
 // src/renderer/core/AudioManager.ts
 import * as THREE from 'three';
-import { CameraSystemLoggingConfig } from '@ecs/systems';
 
 export const AudioManagerLoggingConfig = {
     /** Main toggle for enabling/disable all AudioManager logging */
@@ -25,7 +24,7 @@ export class AudioManager {
 
     constructor() {
         // Initialize the listener but don't attach it yet
-        if (!AudioManagerLoggingConfig.enabled || !CameraSystemLoggingConfig.logConstructors) {
+        if (AudioManagerLoggingConfig.enabled && AudioManagerLoggingConfig.logConstructors) {
             console.log('AudioManager initialized.');
         }
 
@@ -57,7 +56,7 @@ export class AudioManager {
         if (this._enabled) return;
 
         try {
-            if (!AudioManagerLoggingConfig.enabled || !AudioManagerLoggingConfig.logEnableDisable) {
+            if (AudioManagerLoggingConfig.enabled && AudioManagerLoggingConfig.logEnableDisable) {
                 console.log('Enabling audio system...');
             }
             this.listener = new THREE.AudioListener();
@@ -77,7 +76,7 @@ export class AudioManager {
             };
 
             this._enabled = true;
-            if (!AudioManagerLoggingConfig.enabled || !AudioManagerLoggingConfig.logEnableDisable) {
+            if (AudioManagerLoggingConfig.enabled && AudioManagerLoggingConfig.logEnableDisable) {
                 console.log('Audio system enabled');
             }
 
@@ -101,7 +100,7 @@ export class AudioManager {
         // Null out the listener
         this.listener = null;
         this._enabled = false;
-        if (!AudioManagerLoggingConfig.enabled || !AudioManagerLoggingConfig.logEnableDisable) {
+        if (AudioManagerLoggingConfig.enabled && AudioManagerLoggingConfig.logEnableDisable) {
             console.log('Audio system disabled');
         }
     }
@@ -208,5 +207,4 @@ export class AudioManager {
     }
 }
 
-// Optional: Create a singleton instance
 export const audioManager = new AudioManager();

@@ -16,7 +16,7 @@ import { PhysicsConfigManager } from '@core/PhysicsConfigManager';
 import { appEventManager, AppEventManager } from '@core/index';
 import { MovementStateComponent } from '@components/position/MovementStateComponent';
 import { Formatting } from '@renderer/utils/formatting';
-import { LoggingService } from '@systems/debug/LoggingService';
+import { LoggingService } from '@shared/utils/LoggingService';
 import { LogManager } from '@renderer/utils/ManagerLogger';
 import {
     MovementInputHandler,

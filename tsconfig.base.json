@@ -12,6 +12,8 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     // Define baseUrl and paths here if used consistently
+    // Sets a base directory from which to resolve bare specifier module names. For example, in the directory structure:
+    // <https://www.typescriptlang.org/tsconfig/#baseUrl>
     "baseUrl": "./src",
     "paths": {
       "@main/*": [
@@ -43,7 +45,25 @@
       ],
       "@shared/*": [
         "shared/*"
+      ],
+      "@devinspectx/*": [
+        "devinspectx/*"
+      ],
+      "@bridge/*": [
+        "devinspectx/extension/bridge/*"
+      ],
+      "@panel/*": [
+        "devinspectx/extension/panel/*"
+      ],
+      "@dev_tools/*": [
+        "devinspectx/extension/dev_tools/*"
+      ],
+      "@ext-bg/*": [
+        "devinspectx/extension/service_worker/*"
+      ],
+      "@ext-cs/*": [
+        "devinspectx/extension/content_script/*"
       ]
     }
-  },
+  }
 }

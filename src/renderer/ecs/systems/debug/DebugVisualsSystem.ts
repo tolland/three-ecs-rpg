@@ -8,7 +8,7 @@ import {
     DebugPositionIndicatorComponent,
     LookDirectionComponent,
     PositionComponent,
-    RenderableComponent,
+    RenderableComponent, RotationComponent,
 } from '@ecs/components';
 import * as THREE from 'three';
 import { DebugLookAtComponent } from '@components/debug/DebugLookAtComponent';
@@ -266,6 +266,7 @@ export class DebugVisualsSystem extends System {
             DebugLookAtComponent,
             PositionComponent,
             LookDirectionComponent,
+            RotationComponent,
         ]);
 
         for (const entity of entities) {
@@ -278,6 +279,10 @@ export class DebugVisualsSystem extends System {
                 entity,
                 LookDirectionComponent,
             )!;
+            const rotationComp = this.world.getComponent(
+                entity,
+                RotationComponent,
+            )!;
             //console.dir(lookDirComp);
 
             if (!this.debugVisualsGroup.getObjectById(debugComp.visual.id)) {
@@ -288,13 +293,17 @@ export class DebugVisualsSystem extends System {
             debugComp.visual.position
                 .copy(posComp.value)
                 .add(new THREE.Vector3(0, 1.75, 0));
-            const direction = new THREE.Vector3(0, 0, 1);
-            // debugComp.visual.setDirection(
-            //     direction.applyQuaternion(lookDirComp.value),
-            // );
-            // console.log(
-            //     `debugComp setting position to ${Formatting.fVec3(posComp.value)} and direction to ${Formatting.fVec3(direction.applyQuaternion(lookDirComp.value))}`,
-            // );
+
+// Get the forward direction from the rotation component
+            const forwardDirection = new THREE.Vector3(0, 0, 1);
+            forwardDirection.applyQuaternion(rotationComp.value);
+
+// Apply the look direction relative to the forward direction
+            const lookDirection = forwardDirection.clone();
+            lookDirection.applyQuaternion(lookDirComp.value);
+
+// Set the arrow's direction
+            debugComp.visual.setDirection(lookDirection);
         }
         // TODO: Handle removal
     }

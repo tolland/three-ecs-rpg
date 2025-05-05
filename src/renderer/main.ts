@@ -21,6 +21,7 @@ import { WorldBuilder } from '@setup/WorldBuilder';
 import { setupFileMenuListeners } from '@setup/menu_ipc';
 import { initDebugTools } from '@renderer/debugTools';
 import { audioManager } from '@core/AudioManager';
+import { createExtensionDevToolsUI } from '@renderer/extensionDevTools';
 
 // Declare cleanup listeners
 let cleanupControlListener: (() => void) | undefined;
@@ -188,3 +189,5 @@ window.addEventListener('beforeunload', () => {
 });
 
 initDebugTools(world);
+
+// createExtensionDevToolsUI('container');

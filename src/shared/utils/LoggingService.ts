@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { JsonObject, JsonValue } from '@shared/types/serialization';
 
 // @TODO need some optional config loader.
 const GRAYLOG_SERVER = 'http://graylog.lan:12202/gelf';
@@ -16,7 +17,8 @@ interface VectorUpdate {
 
 export class LoggingService {
     private static instance: LoggingService;
-    private enabled: boolean = false;
+    private enabled: boolean = true;
+    private telemetryEnabled: boolean = false;
 
     // --- Backoff State ---
     private isGraylogReachable: boolean = true;
@@ -24,6 +26,7 @@ export class LoggingService {
     private retryTimeoutId: NodeJS.Timeout | null = null;
     // Flag to log the "connection restored" message only once
     private loggedConnectionRestored: boolean = true;
+
     // --- End Backoff State ---
 
     private constructor() {}
@@ -35,7 +38,7 @@ export class LoggingService {
         return LoggingService.instance;
     }
 
-    public setEnabled(enabled: boolean): void {
+    public setEnabled(enabled: boolean): LoggingService {
         this.enabled = enabled;
         if (!enabled && this.retryTimeoutId) {
             // Clear pending retry if logging is disabled
@@ -43,6 +46,7 @@ export class LoggingService {
             this.retryTimeoutId = null;
             this.resetBackoffState(); // Reset state when disabling
         }
+        return this;
     }
 
     // Helper to reset the backoff state variables
@@ -56,7 +60,7 @@ export class LoggingService {
     }
 
     public async logVectorUpdate(update: VectorUpdate): Promise<void> {
-        if (!this.enabled) {
+        if (!this.enabled || !this.telemetryEnabled) {
             // console.log('Logging disabled, skipping vector update.');
             return;
         }
@@ -85,6 +89,68 @@ export class LoggingService {
             await axios.post(GRAYLOG_SERVER, payload, {
                 timeout: 2000, // Add a short timeout for the request itself
             });
+
+            // If successful after a period of being down, reset state and log
+            if (!this.loggedConnectionRestored) {
+                console.log('LoggingService: Connection to Graylog restored.');
+                this.resetBackoffState(); // Fully reset state on success
+                this.loggedConnectionRestored = true;
+            }
+        } catch (error: any) {
+            // Check if it's the *first* time we detect an issue
+            if (this.isGraylogReachable) {
+                console.error(
+                    `LoggingService: Failed to send log to Graylog. Initiating backoff. Error: ${error.message || error}`,
+                );
+                this.isGraylogReachable = false;
+                this.loggedConnectionRestored = false; // Mark that we need to log restoration later
+
+                // Clear any existing timeout just in case (shouldn't happen often)
+                if (this.retryTimeoutId) clearTimeout(this.retryTimeoutId);
+
+                // Schedule the first reconnection attempt
+                this.scheduleReconnectAttempt();
+            } else {
+                // If already known to be unreachable, log less verbosely or not at all
+                // console.warn(`LoggingService: Still unable to reach Graylog. Log dropped.`);
+            }
+
+            // Re-throw or handle the error further if needed by the caller
+            // For now, we just absorb it to prevent app crashes due to logging failures
+        }
+    }
+
+    public async logMessage(payload: JsonObject): Promise<void> {
+        if (!this.enabled) {
+            // console.log('Logging disabled, skipping vector update.');
+            return;
+        }
+
+        // If we know Graylog is down, don't even try sending immediately
+        if (!this.isGraylogReachable) {
+            // console.warn('Graylog unreachable, skipping log send for:', update);
+            // Optionally queue the log here if needed, but this example just drops it
+            return;
+        }
+
+        const message_defaults = {
+            version: '1.1',
+            host: 'three-ecs-rpg',
+            short_message: `this is a message from LoggingService`,
+            level: 6,
+            timestamp: Date.now() / 1000,
+            _stack: new Error().stack,
+            _stream: 'three-ecs-rpg',
+        };
+
+        try {
+            await axios.post(
+                GRAYLOG_SERVER,
+                { ...message_defaults, ...payload },
+                {
+                    timeout: 2000,
+                },
+            );
 
             // If successful after a period of being down, reset state and log
             if (!this.loggedConnectionRestored) {

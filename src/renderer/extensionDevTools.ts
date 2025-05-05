@@ -1,5 +1,4 @@
 // src/renderer/extensionDevTools.ts
-import { ipcRenderer } from 'electron';
 
 /**
  * Create a simple UI for extension development tools
@@ -109,7 +108,7 @@ export function createExtensionDevToolsUI(containerId: string): void {
             }
 
             try {
-                const result = await ipcRenderer.invoke('reload-extension', 'Three.js ECS Inspector');
+                const result = await window.electronIPC.invoke('reload-extension', 'Three.js ECS Inspector');
 
                 if (statusDiv) {
                     if (result.success) {
@@ -135,7 +134,7 @@ export function createExtensionDevToolsUI(containerId: string): void {
 
     if (inspectButton) {
         inspectButton.addEventListener('click', () => {
-            ipcRenderer.send('inspect-extension');
+            window.electronIPC.send('inspect-extension');
         });
     }
 
@@ -151,9 +150,9 @@ export function createExtensionDevToolsUI(containerId: string): void {
     }
 
     // Listen for extension reloaded events
-    ipcRenderer.on('extension-reloaded', (event, data) => {
+    window.electronIPC.on('extension-reloaded', ({ action, payload }) => {
         if (statusDiv) {
-            statusDiv.textContent = `${data.name} reloaded (${data.id})`;
+            statusDiv.textContent = `action ${action} reloaded (payload: ${payload})`;
 
             // Reset status after a delay
             setTimeout(() => {

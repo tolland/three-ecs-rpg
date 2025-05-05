@@ -6,14 +6,12 @@ import * as THREE from 'three';
  * LookDirectionComponent
  *
  * Stores the entity's look direction, independent of the camera system.
- * This allows for decoupling player controls from camera behavior.
+ * This allows for decoupling player controls from camera behavior. The lookDir
+ * is relative to the normal rotation
  */
 export class LookDirectionComponent extends Component {
-    // constructor(public value = new THREE.Quaternion()) {
-    //     super();
-    // }
     constructor(
-        public orbitAngles = new THREE.Vector2(0, Math.PI / 6),
+        public value = new THREE.Quaternion(),
         public minPitch: number = -Math.PI / 3, // Limit looking down
         public maxPitch: number = Math.PI / 2 - 0.1, // Limit looking up
     ) {
@@ -21,6 +19,7 @@ export class LookDirectionComponent extends Component {
     }
 }
 
+// previous implememtation...
 // X: Azimuth (horizontal), Y: Pitch (vertical, radians from horizontal)
 // public orbitAngles = new THREE.Vector2(0, Math.PI / 6),
 // public minPitch: number = -Math.PI / 3, // Limit looking down

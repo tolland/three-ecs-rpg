@@ -3,8 +3,24 @@ import { AppAction } from '@shared/core/AppActions';
 import { Serializer } from '@shared/serialization/Serializer';
 import { serializeForConsole } from '@shared/core/utils';
 import { RegisterManager } from '@core/ManagerRegistry';
+import { CameraSystemLoggingConfig } from '@ecs/systems';
 
 type AppActionListener = (payload?: any) => void;
+
+export const AppEventManagerLoggingConfig = {
+    /** Main toggle for enabling/disable all CameraSystem logging */
+    enabled: false,
+    /** Toggle for constructor logging */
+    logConstructors: true,
+    /** Toggle for constructor logging */
+    logFocusedChanged: false,
+    /** Toggle for method invocation logging */
+    logMethods: false,
+    /** Style for manager names in logs */
+    styleFocusChange: (name: string) => `\x1b[36m${name}\x1b[0m`, // Cyan color
+    /** Style for lifecycle events */
+    styleLifecycle: (event: string) => `\x1b[33m${event}\x1b[0m`, // Yellow color
+};
 
 @RegisterManager()
 export class AppEventManager {
@@ -16,7 +32,9 @@ export class AppEventManager {
             this.listeners.set(action, []);
         });
 
-        console.log("in constructor of appeventmanager");
+        if (AppEventManagerLoggingConfig.enabled && AppEventManagerLoggingConfig.logConstructors) {
+            console.log("in constructor of appeventmanager");
+        }
     }
 
     on(action: AppAction, listener: AppActionListener): void {
@@ -36,9 +54,11 @@ export class AppEventManager {
     }
 
     emit(action: AppAction, payload?: any): void {
-        console.log(
-            `Event emitted: ${action} payload :${serializeForConsole(Serializer.serialize(payload))}`,
-        ); // Debug emission
+        if (AppEventManagerLoggingConfig.enabled) {
+            console.log(
+                `Event emitted: ${action} payload :${serializeForConsole(Serializer.serialize(payload))}`,
+            ); // Debug emission
+        }
         this.listeners.get(action)?.forEach((listener) => {
             try {
                 listener(payload);

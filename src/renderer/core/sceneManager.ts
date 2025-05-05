@@ -10,6 +10,8 @@ const { scene, renderer, cleanup } = setupScene(container);
 export { scene, renderer, cleanup };
 
 window.__THREE__ = THREE;
+window.renderer = renderer;
+window.scene = scene;
 
 // Expose your specific instances
 // window.__THREE_DEVTOOLS__ = {

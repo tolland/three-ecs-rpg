@@ -1,4 +1,6 @@
 import { app, BrowserWindow, Menu, shell } from 'electron';
+import path from 'path';
+import { reloadExtension } from '@main/extensionReloader';
 
 /**
  * Create the application menu with File menu options
@@ -6,7 +8,13 @@ import { app, BrowserWindow, Menu, shell } from 'electron';
 export function createApplicationMenu(mainWindow: BrowserWindow) {
     const isMac = process.platform === 'darwin';
 
-    const template = [
+    const template: ({
+        label: string;
+        submenu: ({ accelerator: string; click: () => void; label: string } | { type: string })[]
+    } | { label: string; submenu: ({ role: string } | { type: string })[] } | {
+        role: string;
+        submenu: { click: () => Promise<void>; label: string }[]
+    })[] = [
         // File Menu
         {
             label: 'File',
@@ -100,6 +108,29 @@ export function createApplicationMenu(mainWindow: BrowserWindow) {
                     ]
                     : [{ role: 'close' }]),
             ],
+        },
+        // // Extension menu
+        {
+            label: 'Devinspectx',
+            submenu: [
+                {
+                    label: 'Reload Three.js ECS Inspector',
+                    accelerator: 'CmdOrCtrl+Shift+R',
+                    click: () => {
+                        reloadExtension('Three.js ECS Inspector',
+                            path.resolve(__dirname, '../devinspectx'), mainWindow);
+                    }
+                },
+                // { type: 'separator' },
+                // {
+                //     label: 'Open DevTools for Extension',
+                //     accelerator: 'CmdOrCtrl+Shift+0',
+                //     click: async () => {
+                //         // Open DevTools focused on the extension
+                //         mainWindow.webContents.openDevTools();
+                //     }
+                // }
+            ]
         },
         // Help Menu
         {

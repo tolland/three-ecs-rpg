@@ -6,6 +6,20 @@ import { ActionStates, KeyMappingConfig } from '@core/types';
 import * as F from '@renderer/utils/chalkColors';
 import { LogManager } from '@renderer/utils/ManagerLogger';
 
+export const InputManagerLoggingConfig = {
+    /** Main toggle for enabling/disable all AudioManager logging */
+    enabled: false,
+    logConstructors: false,
+    logFocusedChanged: false,
+    logEnableDisable: false,
+    /** Toggle for method invocation logging */
+    logMethods: false,
+    /** Style for manager names in logs */
+    styleFocusChange: (name: string) => `\x1b[36m${name}\x1b[0m`, // Cyan color
+    /** Style for lifecycle events */
+    styleLifecycle: (event: string) => `\x1b[33m${event}\x1b[0m`, // Yellow color
+};
+
 /**
  * This is the InputManager class that handles input events and maps them to actions.
  * It uses a configuration file to load key mappings and manages the state of input actions. It is setting flags for the various inputs that it is managing.

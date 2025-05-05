@@ -23,16 +23,16 @@
         <button class="tab-btn" data-tab="systems">Systems</button>
         <button class="tab-btn" data-tab="performance">Performance</button>
       </div>
-      
+
       <div class="search-container">
         <input type="text" id="search-input" placeholder="Search...">
         <button id="search-btn">🔍</button>
       </div>
-      
+
       <!-- Tree view containers -->
       <div class="tree-container active" id="scene-tree"></div>
-      <div class="tree-container" id="entity-tree"></div>
-      <div class="tree-container" id="system-tree"></div>
+      <div class="tree-container" id="entities-tree"></div>
+      <div class="tree-container" id="systems-tree"></div>
       <div class="tree-container" id="performance-tree"></div>
     </div>
 
@@ -44,7 +44,7 @@
           <button id="locate-btn" title="Locate in Scene">👁️</button>
         </div>
       </div>
-      
+
       <div class="details-content" id="details-container">
         <div class="placeholder">Select an item from the tree view</div>
       </div>
@@ -113,6 +113,6 @@
   </template>
 
   <!-- Scripts -->
-  <script src="panel.js"></script>
+  <script type="module" src="panel.js"></script>
 </body>
 </html>

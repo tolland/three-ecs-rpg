@@ -1,3 +1,4 @@
+// src/main/dbus/dbus_mappings.ts
 import * as dbus from 'dbus-next';
 
 // Example usage

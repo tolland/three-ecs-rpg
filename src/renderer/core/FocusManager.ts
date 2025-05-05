@@ -129,14 +129,18 @@ export class FocusManager implements Manager {
         viewportId: ViewportID;
         activeViewId: ActiveViewId;
     }) => {
-        console.log(`${F.fcCyan('FocusManager')}: handleSetFocusEvent
+        if(FocusManagerLoggingConfig.enabled ) {
+            console.log(`${F.fcCyan('FocusManager')}: handleSetFocusEvent
             payload: ${serializeForConsole(Serializer.serialize(payload))}`);
+        }
         if (!this.layoutSystem || !payload) return;
         const leaf = this.layoutSystem.findLeaf(payload.viewportId);
         if (leaf) {
-            console.log(
-                `${F.fcCyan('FocusManager')}: handleSetFocusEvent  leaf.id: ${leaf.id} leaf.activeViewId: ${leaf.activeViewId}`,
-            );
+            if(FocusManagerLoggingConfig.enabled ) {
+                console.log(
+                    `${F.fcCyan('FocusManager')}: handleSetFocusEvent  leaf.id: ${leaf.id} leaf.activeViewId: ${leaf.activeViewId}`,
+                );
+            }
             this.setFocus(leaf.id, leaf.activeViewId);
         }
     };
@@ -221,9 +225,11 @@ export class FocusManager implements Manager {
     };
 
     setFocus(viewportId: ViewportID | null, activeViewId: string | null): void {
-        console.log(
-            `${F.fcCyan('FocusManager')}: setFocus viewportId: ${viewportId} activeViewId: ${activeViewId}`,
-        );
+        if(FocusManagerLoggingConfig.enabled ) {
+            console.log(
+                `${F.fcCyan('FocusManager')}: setFocus viewportId: ${viewportId} activeViewId: ${activeViewId}`,
+            );
+        }
         if (this.focusedViewportId === viewportId) return; // No change
 
         const oldFocusedViewId = this.focusedActiveViewId;
@@ -240,9 +246,11 @@ export class FocusManager implements Manager {
         // Update PlayerControlledComponent
         this.updatePlayerControlTarget(oldFocusedViewId, activeViewId);
 
-        console.log(
-            `${F.fcCyan('FocusManager')}: Focus set to Viewport ${viewportId} / ActiveView ${activeViewId}`,
-        );
+        if(FocusManagerLoggingConfig.enabled ) {
+            console.log(
+                `${F.fcCyan('FocusManager')}: Focus set to Viewport ${viewportId} / ActiveView ${activeViewId}`,
+            );
+        }
         // TODO: Update visual indicator for focused viewport? (e.g., border)
     }
 
@@ -255,9 +263,11 @@ export class FocusManager implements Manager {
         if (!this.world || !this.cameraSystem) return;
 
         let oldTargetEntity: Entity | null = null;
-        console.log(
-            `${F.fcCyan('FocusManager')}: updatePlayerControlTarget oldActiveViewId ${oldActiveViewId} newActiveViewId ${newActiveViewId}`,
-        );
+        if(FocusManagerLoggingConfig.enabled ) {
+            console.log(
+                `${F.fcCyan('FocusManager')}: updatePlayerControlTarget oldActiveViewId ${oldActiveViewId} newActiveViewId ${newActiveViewId}`,
+            );
+        }
         if (oldActiveViewId) {
             const oldView = this.cameraSystem.getActiveView(oldActiveViewId);
             const oldConfig = oldView
@@ -274,10 +284,11 @@ export class FocusManager implements Manager {
                 : null;
             newTargetEntity = newConfig?.targetEntity ?? null;
         }
-
-        console.log(
-            `${F.fcCyan('FocusManager')}: oldTargetEntity ${oldTargetEntity} newTargetEntity ${newTargetEntity}`,
-        );
+        if(FocusManagerLoggingConfig.enabled ) {
+            console.log(
+                `${F.fcCyan('FocusManager')}: oldTargetEntity ${oldTargetEntity} newTargetEntity ${newTargetEntity}`,
+            );
+        }
 
         if (oldTargetEntity !== null && oldTargetEntity !== newTargetEntity) {
             this.world.removeComponent(oldTargetEntity, PlayerControlComponent);
@@ -301,9 +312,11 @@ export class FocusManager implements Manager {
                     newTargetEntity,
                     new PlayerControlComponent(),
                 );
-                console.log(
-                    `${F.fcCyan('FocusManager')}: Added PlayerControlComponent to Entity ${newTargetEntity}`,
-                );
+                if(FocusManagerLoggingConfig.enabled ) {
+                    console.log(
+                        `${F.fcCyan('FocusManager')}: Added PlayerControlComponent to Entity ${newTargetEntity}`,
+                    );
+                }
             } else {
                 console.warn(
                     `${F.fcCyan('FocusManager')}: Cannot set control, target entity ${newTargetEntity} lacks InputControllableComponent.`,

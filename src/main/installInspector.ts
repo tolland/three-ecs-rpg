@@ -14,7 +14,6 @@ import fs from 'fs';
 export async function installThreeEcsInspector(
     electronSession: Electron.Session = session.defaultSession,
 ): Promise<Electron.Extension> {
-    console.log(__dirname);
     const extensionPath = path.resolve(__dirname, '../devinspectx');
 
     // Check if the extension exists

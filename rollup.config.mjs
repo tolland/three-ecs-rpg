@@ -21,6 +21,13 @@ export const main = {
         dir: 'dist/main',
         format: 'cjs', // Keep CJS for main
         sourcemap: !production ? 'inline' : false,
+        sourcemapPathTransform: (relativeSourcePath) => {
+            // If the path starts with "../../../src", fix it by removing one "../"
+            if (relativeSourcePath.startsWith('../../../src')) {
+                return relativeSourcePath.replace('../../../src', '../../src');
+            }
+            return relativeSourcePath;
+        },
         entryFileNames: '[name].js',
     },
     plugins: [
@@ -39,9 +46,13 @@ export const main = {
                 target: 'es6',
                 outDir: './dist/main',
                 moduleResolution: 'node',
-                rootDir: './src',
+                rootDir: 'src',
+                sourceRoot: '.',
             },
             include: ['main/**/*.ts', 'shared/**/*.ts'],
+            // seems like this is ignored, is probably only useful to build a selective
+            // include list. because if something references something in the these
+            // files they get loaded anyway, so don't serve the intuitive purpose.
             exclude: [
                 'devinspectx/**',
                 'renderer/**',
@@ -63,6 +74,13 @@ export const renderer = {
         file: 'dist/renderer/bundle.js',
         format: 'es',
         sourcemap: true,
+        sourcemapPathTransform: (relativeSourcePath) => {
+            // If the path starts with "../../../src", fix it by removing one "../"
+            if (relativeSourcePath.startsWith('../../../src')) {
+                return relativeSourcePath.replace('../../../src', '../../src');
+            }
+            return relativeSourcePath;
+        },
         globals: {
             'plotly.js': 'Plotly',
             'chart.js': 'ChartJs',
@@ -86,6 +104,7 @@ export const renderer = {
                 outDir: './dist/renderer',
                 moduleResolution: 'node',
                 rootDir: './src',
+                sourceRoot: '.',
             },
             include: ['renderer/**/*.ts', 'shared/**/*.ts'],
             exclude: ['node_modules', 'dist', 'release', 'src/devinspectx/**'],
@@ -117,10 +136,10 @@ export const renderer = {
                     dest: 'dist/renderer/assets/skins',
                 },
                 // Extensions directory if needed
-                {
-                    src: 'assets/extensions/**/*.crx',
-                    dest: 'dist/renderer/assets/extensions',
-                },
+                // {
+                //     src: 'assets/extensions/**/*.crx',
+                //     dest: 'dist/renderer/assets/extensions',
+                // },
                 {
                     src: 'node_modules/stats.js/build/stats.min.js',
                     dest: 'dist/renderer/libs',
@@ -145,6 +164,13 @@ export const preload = {
         file: 'dist/preload/preload.js',
         format: 'cjs', // Keep CJS for preload
         sourcemap: !production ? 'inline' : false,
+        sourcemapPathTransform: (relativeSourcePath) => {
+            // If the path starts with "../../../src", fix it by removing one "../"
+            if (relativeSourcePath.startsWith('../../../src')) {
+                return relativeSourcePath.replace('../../../src', '../../src');
+            }
+            return relativeSourcePath;
+        },
     },
     plugins: [
         resolve(),
@@ -162,6 +188,7 @@ export const preload = {
                 outDir: './dist/preload',
                 moduleResolution: 'node',
                 rootDir: './src',
+                sourceRoot: '.',
             },
             include: ['preload/**/*.ts', 'shared/**/*.ts'],
             exclude: ['node_modules', 'dist', 'release', 'renderer/**'],
@@ -174,11 +201,9 @@ export const preload = {
 // --- Inspector/DevTools Extension Bundle ---
 export const inspector = {
     input: {
-        'index': 'src/devinspectx/index.ts',
-        'background': 'src/devinspectx/extension/background.ts',
-        'content-script': 'src/devinspectx/extension/content-script.ts',
-        'bridge': 'src/devinspectx/extension/bridge.ts',
-        'devtools': 'src/devinspectx/extension/devtools.ts',
+        background: 'src/devinspectx/extension/service_worker/background.ts',
+        'devtools/devtools': 'src/devinspectx/extension/devtools/devtools.ts',
+        'panel/panel': 'src/devinspectx/extension/panel/panel.ts',
     },
     output: {
         dir: 'dist/devinspectx',
@@ -216,6 +241,7 @@ export const inspector = {
             include: [
                 'devinspectx/**/*.ts',
                 'devinspectx/types/*.d.ts',
+                'shared/**/*.ts',
             ],
             // typeRoots: ["./node_modules/@types", "./src/inspector/types"]
         }),
@@ -245,6 +271,14 @@ export const inspector = {
                     src: 'src/devinspectx/extension/panel/*.js',
                     dest: 'dist/devinspectx/panel',
                 },
+                {
+                    src: 'src/devinspectx/extension/devtools/*.html',
+                    dest: 'dist/devinspectx/devtools',
+                },
+                {
+                    src: 'src/devinspectx/extension/devtools/*.css',
+                    dest: 'dist/devinspectx/devtools',
+                },
                 // Icons
                 {
                     src: 'assets/devinspectx/icons/*',
@@ -263,5 +297,120 @@ export const inspector = {
     },
 };
 
-const configMap = { main, renderer, preload, inspector };
-export default [main, renderer, preload, inspector];
+// --- Inspector/DevTools content_script Bundle ---
+export const content_script = {
+    input: {
+        'content-script': 'src/devinspectx/extension/content_script/index.ts',
+    },
+    output: {
+        dir: 'dist/devinspectx',
+        format: 'iife',
+        sourcemap: true,
+        name: '_',
+        entryFileNames: '[name].js',
+    },
+    plugins: [
+        resolve({
+            browser: true,
+            preferBuiltins: false,
+        }),
+        commonjs(),
+        json(),
+        css(),
+        typescript({
+            tsconfig: './tsconfig.base.json',
+            sourceMap: !production,
+            inlineSources: !production,
+            compilerOptions: {
+                // Browser-specific options for the extension
+                noEmit: false,
+                module: 'esnext',
+                moduleResolution: 'node',
+                target: 'ES2020',
+                outDir: './dist/devinspectx',
+                rootDir: './src',
+                // Critical options for browser environment
+                lib: ['ESNext', 'DOM', 'DOM.Iterable'],
+                skipLibCheck: true,
+                strictFunctionTypes: false,
+            },
+            // Include both the source files and our types reference file
+            include: [
+                'devinspectx/**/*.ts',
+                'devinspectx/types/*.d.ts',
+                'shared/**/*.ts',
+            ],
+            // typeRoots: ["./node_modules/@types", "./src/inspector/types"]
+        }),
+        production && terser(),
+    ],
+    // The chrome API is external
+    external: ['chrome'],
+    watch: {
+        clearScreen: false,
+    },
+};
+
+// --- Inspector/DevTools bridge_script Bundle ---
+export const bridge_script = {
+    input: {
+        'bridge/bridge': 'src/devinspectx/extension/bridge/bridge.ts',
+    },
+    output: {
+        dir: 'dist/devinspectx',
+        format: 'iife',
+        sourcemap: true,
+        name: '_',
+        entryFileNames: '[name].js',
+    },
+    plugins: [
+        resolve({
+            browser: true,
+            preferBuiltins: false,
+        }),
+        commonjs(),
+        json(),
+        css(),
+        typescript({
+            tsconfig: './tsconfig.base.json',
+            sourceMap: !production,
+            inlineSources: !production,
+            compilerOptions: {
+                // Browser-specific options for the extension
+                noEmit: false,
+                module: 'esnext',
+                moduleResolution: 'node',
+                target: 'ES2020',
+                outDir: './dist/devinspectx',
+                rootDir: './src',
+                // Critical options for browser environment
+                lib: ['ESNext', 'DOM', 'DOM.Iterable'],
+                skipLibCheck: true,
+                strictFunctionTypes: false,
+            },
+            include: ['devinspectx/**/*.ts', 'shared/**/*.ts'],
+            // typeRoots: ["./node_modules/@types", "./src/inspector/types"]
+        }),
+        production && terser(),
+    ],
+    watch: {
+        clearScreen: false,
+    },
+};
+
+const configMap = {
+    bridge_script,
+    content_script,
+    main,
+    renderer,
+    preload,
+    inspector,
+};
+export default [
+    bridge_script,
+    content_script,
+    main,
+    renderer,
+    preload,
+    inspector,
+];

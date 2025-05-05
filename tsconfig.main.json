@@ -1,0 +1,24 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "module": "esnext",
+    "lib": ["ESNext"],
+    "target": "es6",
+    "outDir": "./dist/main",
+    "moduleResolution": "node",
+    "rootDir": "./src"
+  },
+  "include": [
+    "main/**/*.ts",
+    "shared/**/*.ts"
+  ],
+  "exclude": [
+    "devinspectx/**",
+    "renderer/**",
+    "preload/**",
+    "src/devinspectx/**",
+    "src/renderer/**",
+    "src/preload/**"
+  ]
+}

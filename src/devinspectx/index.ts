@@ -7,10 +7,10 @@
  */
 
 // Import the necessary modules for Rollup to include them
-import './extension/background';
-import './extension/content-script';
-import './extension/devtools';
-import './extension/bridge';
+import './extension/service_worker/background';
+import './extension/content_script';
+import './extension/devtools/devtools';
+import './extension/bridge/bridge';
 
 // // Export a function to install the extension in Electron
 // export function installInspectorExtension(session: Electron.Session, extensionPath: string): Promise<Electron.Extension> {

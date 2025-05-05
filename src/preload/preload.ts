@@ -3,6 +3,20 @@ import { contextBridge, ipcRenderer } from 'electron';
 import { AppAction } from '@shared/core';
 import IpcRendererEvent = Electron.IpcRendererEvent;
 
+
+/**
+* This file is loaded by the main process
+*
+* during the call to createWindow (@link ../main/lib/create_window.ts#createWindow)
+ * <code>
+ *         mainWindow = new BrowserWindow({
+ *         width: Math.max(1024, width * 0.8),
+ *         height: Math.max(768, height * 0.8),
+ *         webPreferences: {
+ *             preload: path.join(__dirname, '../preload/preload.js'),
+ *             </code>
+*/
+
 // Define the shape of the arguments coming over IPC
 // Keep this consistent with what main process sends in dbusService.ts
 interface DbusActionArgs {
@@ -13,7 +27,9 @@ interface DbusActionArgs {
 // Define common types for IPC handlers and responses
 type IpcRequestArgs = Record<string, unknown>;
 type IpcResponseData = unknown;
-type IpcHandler = (args: IpcRequestArgs) => Promise<IpcResponseData> | IpcResponseData;
+type IpcHandler = (
+    args: IpcRequestArgs,
+) => Promise<IpcResponseData> | IpcResponseData;
 
 // Example: Expose a simple API
 contextBridge.exposeInMainWorld('electronIPC', {
@@ -48,14 +64,21 @@ contextBridge.exposeInMainWorld('electronIPC', {
         ipcRenderer.on(channel, (event, args) => listener(args));
     },
     // Renderer process calls OUT -> Main process handles (if needed later)
-    invoke: (channel: string, args?: IpcRequestArgs): Promise<IpcResponseData> => {
+    invoke: (
+        channel: string,
+        args?: IpcRequestArgs,
+    ): Promise<IpcResponseData> => {
         return ipcRenderer.invoke(channel, args);
     },
+    /**
+     * If you need to transfer a MessagePort to the main process,
+     * use ipcRenderer.postMessage
+     */
+    send: (channel: string, args?: IpcRequestArgs): void => {
+        ipcRenderer.send(channel, args);
+    },
     // Add a handler for requests from main process
-    handleRequest: (
-        channel: string,
-        handler: IpcHandler,
-    ) => {
+    handleRequest: (channel: string, handler: IpcHandler) => {
         const requestChannel = `${channel}:request`;
 
         ipcRenderer.on(requestChannel, async (event, request) => {
@@ -79,7 +102,8 @@ contextBridge.exposeInMainWorld('electronIPC', {
     },
     // Function for Renderer to listen for one-way messages FROM Main
     on: (channel: string, listener: (args: IpcRequestArgs) => void) => {
-        const handler = (event: IpcRendererEvent, args: IpcRequestArgs) => listener(args);
+        const handler = (event: IpcRendererEvent, args: IpcRequestArgs) =>
+            listener(args);
         ipcRenderer.on(channel, handler);
         return () => {
             ipcRenderer.removeListener(channel, handler);

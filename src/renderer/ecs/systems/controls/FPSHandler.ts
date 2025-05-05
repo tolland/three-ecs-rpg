@@ -50,35 +50,60 @@ export class FPSInputHandler extends InputManagerBasedHandler {
     applyRotation(
         deltaTime: number,
         rotationInput: RotationInput,
-        lookDir: LookDirectionComponent,
+        lookDirComp: LookDirectionComponent,
         rotComp: RotationComponent,
     ): void {
+        this.applyLookAndRotation(
+            deltaTime,
+            rotationInput,
+            lookDirComp,
+            rotComp,)
+    }
 
-        // const euler = new THREE.Euler(0, 0, 0, 'YXZ');
-        // euler.setFromQuaternion(lookDir.value);
-        // euler.y -= input.mouseDelta.x;
-        // euler.x -= input.mouseDelta.y;
-        // euler.x = Math.max(
-        //     -Math.PI / 2 + 0.1,
-        //     Math.min(Math.PI / 2 - 0.1, euler.x),
-        // ); // Clamp pitch
-        // lookDir.value.setFromEuler(euler);
-        // } else if (cameraTarget) {
-        //     cameraTarget.orbitAngles.x -= mouseDeltaX; // Azimuth
-        //     cameraTarget.orbitAngles.y -= mouseDeltaY; // Pitch
-        //     cameraTarget.orbitAngles.y = Math.max(
-        //         cameraTarget.minPitch,
-        //         Math.min(cameraTarget.maxPitch, cameraTarget.orbitAngles.y),
-        //     ); // Clamp pitch
-        // }
+    applyJustRotation(
+        deltaTime: number,
+        rotationInput: RotationInput,
+        lookDirComp: LookDirectionComponent,
+        rotComp: RotationComponent,
 
-        // rotComp.value.slerp(
-        //     new THREE.Quaternion().setFromUnitVectors(
-        //         new THREE.Vector3(0, 0, -1),
-        //         lookDir.value,
-        //     ),
-        //     0.15,
-        // );
+    ){
+
+        const clampedYaw = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, rotationInput.yaw));
+
+        const euler = new THREE.Euler(
+            0,
+            clampedYaw,
+            0,
+            'YXZ'
+        );
+        const quaternion = new THREE.Quaternion().setFromEuler(euler);
+        rotComp.value.multiply(quaternion);
+    }
+
+    applyLookAndRotation(
+        deltaTime: number,
+        rotationInput: RotationInput,
+        lookDirComp: LookDirectionComponent,
+        rotComp: RotationComponent,
+
+    ){
+
+        const deltaYaw = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, rotationInput.yaw));
+        const deltaPitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, rotationInput.pitch));
+
+        const lookEuler = new THREE.Euler(
+            deltaPitch,
+            deltaYaw,
+            0,
+            'YXZ'
+        );
+        const quaternion = new THREE.Quaternion().setFromEuler(lookEuler);
+
+        lookDirComp.value.multiply(quaternion);
+
+        const targetYawQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, lookEuler.y, 0));
+
+        rotComp.value.slerp(targetYawQuat.premultiply(rotComp.value), 0.75);
     }
 
     getMovementInput(

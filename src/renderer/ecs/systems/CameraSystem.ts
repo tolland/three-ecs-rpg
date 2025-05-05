@@ -29,8 +29,10 @@ import {
     ViewportID,
 } from '@renderer/core/types/viewport';
 import { serializeForConsole } from '@shared/core/utils';
-import { LogManager, ManagerLoggingConfig } from '@renderer/utils/ManagerLogger';
-
+import {
+    LogManager,
+    ManagerLoggingConfig,
+} from '@renderer/utils/ManagerLogger';
 
 export const CameraSystemLoggingConfig = {
     /** Main toggle for enabling/disable all CameraSystem logging */
@@ -98,7 +100,10 @@ export class CameraSystem extends System {
         super(world);
         // Find collision system to get Octree? Or require Octree in constructor?
         // Let's assume we set it via a method for now.
-        if (!CameraSystemLoggingConfig.enabled || !CameraSystemLoggingConfig.logConstructors) {
+        if (
+            CameraSystemLoggingConfig.enabled &&
+            CameraSystemLoggingConfig.logConstructors
+        ) {
             console.log(
                 `${F.fcYellow('CameraSystem')}: Initialized - will attach AudioListener when ready`,
             );
@@ -123,28 +128,39 @@ export class CameraSystem extends System {
         activeViewId: ActiveViewId | null;
         oldActiveViewId: ActiveViewId | null;
     }) {
-        if (!CameraSystemLoggingConfig.enabled || !CameraSystemLoggingConfig.logFocusedChanged) {
+        if (
+            CameraSystemLoggingConfig.enabled &&
+            CameraSystemLoggingConfig.logFocusedChanged
+        ) {
             console.log(
                 `${F.fcYellow('CameraSystem')}: FOCUS_CHANGED event changed to ActiveView ${payload.activeViewId}  viewportId: ${payload.viewportId}  oldActiveViewId: ${payload.oldActiveViewId}`,
             );
         }
 
         if (payload.activeViewId) {
-            this._focusedActiveViewId = payload.activeViewId
+            this._focusedActiveViewId = payload.activeViewId;
             const activeView = this._activeViews.get(payload.activeViewId);
             if (activeView) {
-                const viewConfig = this.viewConfigurations.get(activeView.viewConfigId);
-                if(viewConfig) {
-                    const camera = this.cameraInstances.get(viewConfig.cameraId);
+                const viewConfig = this.viewConfigurations.get(
+                    activeView.viewConfigId,
+                );
+                if (viewConfig) {
+                    const camera = this.cameraInstances.get(
+                        viewConfig.cameraId,
+                    );
                     if (camera) {
                         // Make sure camera has valid state before updating audio listener
-                        if (camera.position &&
+                        if (
+                            camera.position &&
                             camera.position.x !== null &&
                             camera.position.y !== null &&
-                            camera.position.z !== null) {
+                            camera.position.z !== null
+                        ) {
                             this.updateAudioListener(camera);
                         } else {
-                            console.warn(`Cannot update audio listener: Camera ${viewConfig.cameraId} has invalid position`);
+                            console.warn(
+                                `Cannot update audio listener: Camera ${viewConfig.cameraId} has invalid position`,
+                            );
                         }
                     }
                 }
@@ -153,9 +169,11 @@ export class CameraSystem extends System {
     }
 
     private handleLayoutUpdated(event: LayoutEvent): void {
-        console.log(
-            `${F.fcYellow('CameraSystem')}: saw VIEWPORT_LAYOUT_UPDATED event with payload ${serializeForConsole(Serializer.serialize(event))}`,
-        );
+        if (CameraSystemLoggingConfig.enabled) {
+            console.log(
+                `${F.fcYellow('CameraSystem')}: saw VIEWPORT_LAYOUT_UPDATED event with payload ${serializeForConsole(Serializer.serialize(event))}`,
+            );
+        }
         switch (event.type) {
             case 'leaf-split':
                 // Handle leaf split events
@@ -163,9 +181,11 @@ export class CameraSystem extends System {
                     event.newNodeIds.forEach((newNodeId: string) => {
                         const existingView =
                             this.getActiveViewForViewport(newNodeId);
-                        console.log(
-                            `${F.fcYellow('CameraSystem')}: handling leaf split`,
-                        );
+                        if (CameraSystemLoggingConfig.enabled) {
+                            console.log(
+                                `${F.fcYellow('CameraSystem')}: handling leaf split`,
+                            );
+                        }
                     });
                 }
                 break;
@@ -659,16 +679,25 @@ export class CameraSystem extends System {
         this.listener = audioManager.listener;
 
         // Skip attaching if camera is invalid
-        if (!activeCamera || !activeCamera.isCamera ||
-            !activeCamera.matrixWorld || !activeCamera.position ||
-            activeCamera.position.x === null) {
-            console.warn('CameraSystem: Cannot attach listener to invalid camera');
+        if (
+            !activeCamera ||
+            !activeCamera.isCamera ||
+            !activeCamera.matrixWorld ||
+            !activeCamera.position ||
+            activeCamera.position.x === null
+        ) {
+            console.warn(
+                'CameraSystem: Cannot attach listener to invalid camera',
+            );
             return;
         }
 
         try {
             // Only attach if not already attached to this camera
-            if (!this.listener.parent || this.listener.parent !== activeCamera) {
+            if (
+                !this.listener.parent ||
+                this.listener.parent !== activeCamera
+            ) {
                 if (this.listener.parent) {
                     this.listener.removeFromParent();
                 }
@@ -679,13 +708,15 @@ export class CameraSystem extends System {
 
                 // Now attach the listener
                 activeCamera.add(this.listener);
-                console.log(`AudioListener attached to camera: ${activeCamera.name}`);
+                console.log(
+                    `AudioListener attached to camera: ${activeCamera.name}`,
+                );
             }
         } catch (error) {
             console.error('Error attaching audio listener to camera:', error);
             console.error('Camera details:', {
                 name: activeCamera.name,
-                position: activeCamera.position?.toArray() || 'invalid'
+                position: activeCamera.position?.toArray() || 'invalid',
             });
         }
     }

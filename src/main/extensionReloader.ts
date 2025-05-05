@@ -1,8 +1,9 @@
 // src/main/extensionReloader.ts
-import { session, BrowserWindow, ipcMain } from 'electron';
+import { session, BrowserWindow, ipcMain, Menu } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as log from 'electron-log';
+import MenuItemConstructorOptions = Electron.MenuItemConstructorOptions;
 
 // Keep track of loaded extensions
 const loadedExtensions: Record<string, Electron.Extension> = {};
@@ -56,15 +57,16 @@ export async function installDevToolsExtension(
  */
 export function setupExtensionDevTools(mainWindow: BrowserWindow): void {
     // Create dev tools menu
-    const devExtensionsMenu = {
+    const devExtensionsMenu: MenuItemConstructorOptions[] = [{
         label: 'DevTools Extensions',
         submenu: [
             {
                 label: 'Reload Three.js ECS Inspector',
                 accelerator: 'CmdOrCtrl+Shift+R',
                 click: async () => {
+                    console.log(__dirname);
                     await reloadExtension('Three.js ECS Inspector',
-                        path.resolve(__dirname, '../../devinspectx'), mainWindow);
+                        path.resolve(__dirname, '../devinspectx'), mainWindow);
                 }
             },
             { type: 'separator' },
@@ -76,10 +78,10 @@ export function setupExtensionDevTools(mainWindow: BrowserWindow): void {
                 }
             }
         ]
-    };
+    }];
 
     // Add to application menu (Note: in a real app, integrate this with your menu)
-    // Menu.buildFromTemplate([devExtensionsMenu]);
+    Menu.buildFromTemplate(devExtensionsMenu);
 
     // Set up IPC handler for extension reloading
     ipcMain.handle('reload-extension', async (event, extensionName) => {
@@ -99,7 +101,7 @@ export function setupExtensionDevTools(mainWindow: BrowserWindow): void {
  * @param mainWindow The main application window
  * @returns Result of the reload operation
  */
-async function reloadExtension(
+export async function reloadExtension(
     extensionName: string,
     extensionPath: string,
     mainWindow: BrowserWindow
